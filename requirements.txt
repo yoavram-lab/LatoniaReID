@@ -8,3 +8,4 @@ ipywidgets>=8.1
 matplotlib>=3.10
 umap-learn>=0.5
 faiss-cpu>=1.11
+pytorch_metric_learning>=2.8
