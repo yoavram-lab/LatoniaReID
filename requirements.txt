@@ -1,0 +1,10 @@
+torch>=2.1      # Apple-silicon wheels include MPS support
+torchvision>=0.17
+open_clip_torch>=2.24
+numpy>=1.24
+pillow>=10.0
+tqdm>=4.66
+ipywidgets>=8.1
+matplotlib>=3.10
+umap-learn>=0.5
+faiss-cpu>=1.11
