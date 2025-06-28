@@ -19,7 +19,7 @@ def find_image_subfolders(folder):
     return subfolders
 
 
-def find_image_paths(folder, extensions=('.jpg', '.jpeg')):
+def find_image_paths(folder, extensions=('.jpg', '.jpeg', '.png')):
     """Get all image paths in a folder."""
     folder = Path(folder)
     return [
