@@ -1,25 +1,20 @@
 # LatoniaDetector
-Identify Lationa frog from previous images
-
-
+Re-ID Lationa frogs from images
 
 ```
-# segment images
-python app.py segment
+# bbox images
+python detect_bbox.py data bbox.json --crop
+mv data_bbox bbox
 
-# train ArcFace models
-python training.py --data-folder=data
-python training.py --data-folder=segmented_white
-# use training_history.ipynb to generate training plot
+# finetune model
+python training_miewid.py --train_csv bina_photos_train_bbox.csv --val_csv bina_photos_validation_bbox.csv
+# see output for the filename of the checkpoint
 
-# check available models
-python app.py list-models
+# embed images
+python embedding.py miewid-msv3 bbox
+python embedding.py miewid-msv3_DATETIME bbox # repalce DATETIME with checkpoint name
 
-# generate all embeddings after updating checkpoint names in embedding.sh
-source embedding.sh 
-
-# run validation after updating checkpoint names in validation.sh
-source validation.sh > validation.log
-# use tpr-fpr.ipynb to generate ROC curve
-# use umap.ipynb to generate UMAP plots
+# run validation
+python validation.py miewid-msv3 bbox
+python validation.py miewid-msv3_DATETIME bbox # repalce DATETIME with checkpoint name
 ```
