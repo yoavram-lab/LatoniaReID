@@ -1,6 +1,15 @@
 # LatoniaDetector
 Re-ID Lationa frogs from images
 
+- Checkpoints:
+ - `miewid-msv3_20250720-154043` 2152, no proj in head, backbone finetuning
+ - `miewid-msv3_20250719-150002` 1024D
+ - `miewid-msv3_20250719-084418` 512D
+ - `miewid-msv3_20250718-225339 ` 256D
+ - `miewid-msv3_20250714-184156` 128D
+ - `miewid_final_07JUL25` 128D, trained on all bina
+ - `miewid-msv3_20250710-234908` 128D, ???
+
 ```
 # bbox images
 python detect_bbox.py data bbox.json --crop
