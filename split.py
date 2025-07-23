@@ -1,62 +1,80 @@
 import pandas as pd
 import numpy as np
+from tabulate import tabulate
+import click
 
-# Load data
-fname = "bina_photos.csv"
-print(f"Loading data from {fname}")
-df = pd.read_csv(fname)
-print(f"Total number of images: {df.shape[0]}")
-# Find label counts
-label_counts = df['label'].value_counts()
-n_labels = len(label_counts)
-print(f"Number of labels: {n_labels}")
+@click.command()
+@click.argument('fname', type=click.Path(exists=True, file_okay=True))
+@click.option('--p', type=float, default=0.2, help='Proportion of labels to sample for validation set.')
+@click.option('--seed', type=int, default=1337, help='Random seed for reproducibility.')
+@click.option('--no-split', is_flag=True, help='If set, do not perform the split and just print statistics.')
+def main(fname, p, seed, no_split):
+    print(f"Loading data from {fname}")
+    df = pd.read_csv(fname)
+    df['date'] = [p.split('/')[1] for p in df['rel_path']]
+    # how many images?
+    print(f"Total number of images: {df.shape[0]}")
 
-# Labels with >3 images
-many_imgs_labels = label_counts[label_counts > 3].index.tolist()
-# Labels with ≤3 images
-few_imgs_labels = label_counts[label_counts <= 3].index.tolist()
+    # how many unique labels?
+    label_counts = df['label'].value_counts()
+    n_labels = len(label_counts)
+    print(f"Number of labels: {n_labels}")
+   
+    # how many images per label?
+    hist, bins = np.histogram(label_counts, bins=np.arange(1, label_counts.max() + 2))
+    median = np.median(label_counts)
+    print(f"Histogram of label counts (median {median})")
+    print(tabulate([['# images']+bins.tolist(), ['# labels'] + hist.tolist()], tablefmt='rounded_outline'))
 
-# Split many_imgs_labels into 75% train labels and 25% "split" labels
-many_imgs_labels = np.array(many_imgs_labels)
-np.random.seed(42)
-np.random.shuffle(many_imgs_labels)
-split_point = int(np.ceil(len(many_imgs_labels) * 0.75))
-many_train_labels = many_imgs_labels[:split_point]
-many_split_labels = many_imgs_labels[split_point:]
+    # how many unique dates?
+    date_counts = df['date'].value_counts()
+    n_dates = len(date_counts)
+    print(f"Number of dates: {n_dates}")
+    print(f"Dates: {date_counts.index.min()} to {date_counts.index.max()}")
 
-# All images for 75% of labels go to train
-many_imgs_train = df[df['label'].isin(many_train_labels)]
-# For the remaining 25% of labels, split images half/half within each label
-split_imgs = df[df['label'].isin(many_split_labels)]
-split_imgs_train = []
-split_imgs_val = []
-for label, group in split_imgs.groupby('label'):
-    idx = group.sample(frac=1, random_state=42).index  # shuffle
-    split = int(np.ceil(len(group) / 2))
-    split_imgs_train.append(group.loc[idx[:split]])
-    split_imgs_val.append(group.loc[idx[split:]])
+    # how many dates per label?
+    label_dates = df.groupby('label')['date'].nunique()
+    hist, bins = np.histogram(label_dates, bins=np.arange(1, label_dates.max() + 2))
+    median = np.median(label_dates)
+    print(f"Histogram of date-label counts (median {median})")
+    print(tabulate([['# dates']+bins.tolist(), ['# labels']+hist.tolist()], tablefmt='rounded_outline'))
 
-split_imgs_train = pd.concat(split_imgs_train) if split_imgs_train else pd.DataFrame(columns=df.columns)
-split_imgs_val = pd.concat(split_imgs_val) if split_imgs_val else pd.DataFrame(columns=df.columns)
+    # how many images per date-label combination?
+    date_label_counts = df.groupby(['date', 'label']).size()
+    print(f"Number of date-label combinations: {date_label_counts.shape[0]}")
+    hist, bins = np.histogram(date_label_counts, bins=np.arange(1, date_label_counts.max() + 2))
+    median = np.median(date_label_counts)
+    low, high = np.percentile(date_label_counts, [5, 95])
+    print(f"Histogram of date-label counts (median {median}, 90% CI {low:.2f}-{high:.2f})")
+    print(tabulate([['# images']+bins.tolist(), ['# date-label'] + hist.tolist()], tablefmt='rounded_outline'))
 
-# For labels with ≤3 images, split at label level: 75% train, 25% val
-few_imgs_labels = np.array(few_imgs_labels)
-np.random.seed(42)
-np.random.shuffle(few_imgs_labels)
-split = int(np.ceil(len(few_imgs_labels) * 0.75))
-few_labels_train = few_imgs_labels[:split]
-few_labels_val = few_imgs_labels[split:]
+    # sample p=20% label to validation set so that the number of dates per label is preserved
+    train_labels = []
+    val_labels = []
+    rng = np.random.default_rng(seed=seed)
+        
+    for n_dates in label_dates.unique():
+        labels_with_n_dates = label_dates[label_dates == n_dates].index.tolist()
+        size = int(len(labels_with_n_dates) * p)
+        size += 1 if len(labels_with_n_dates) > 4 else 0
+        rng.shuffle(labels_with_n_dates)
+        val_labels += labels_with_n_dates[:size]
+        train_labels += labels_with_n_dates[size:]
 
-few_imgs_train = df[df['label'].isin(few_labels_train)]
-few_imgs_val = df[df['label'].isin(few_labels_val)]
+    assert len(train_labels) + len(val_labels) == n_labels, (len(train_labels) , len(val_labels) , n_labels)
+    assert len(set(val_labels) & set(train_labels)) == 0, set(val_labels) & set(train_labels)
 
-# Concatenate final splits
-train_df = pd.concat([many_imgs_train, split_imgs_train, few_imgs_train]).sample(frac=1, random_state=42).reset_index(drop=True)
-val_df = pd.concat([split_imgs_val, few_imgs_val]).sample(frac=1, random_state=42).reset_index(drop=True)
+    train_df = df[df['label'].isin(train_labels)].reset_index(drop=True)
+    val_df = df[df['label'].isin(val_labels)].reset_index(drop=True)
+    assert train_df.shape[0] + val_df.shape[0] == df.shape[0], (train_df.shape[0], val_df.shape[0], df.shape[0])
 
-print(f"Number of images in train set: {train_df.shape[0]}, number of labels: {len(train_df['label'].unique())}")
-print(f"Number of images in val set: {val_df.shape[0]}, number of labels: {len(val_df['label'].unique())}")
 
-# Save to CSV
-train_df.to_csv(f"{fname.split('.')[0]}_train.csv", index=False)
-val_df.to_csv(f"{fname.split('.')[0]}_validation.csv", index=False)
+    train_fname = fname.replace('.csv', '_train.csv')
+    if not no_split: train_df.to_csv(train_fname, index=False)
+    print(f"Saved training set with {train_df.shape[0]} images and {train_df['label'].nunique()} labels to {train_fname}")
+    val_fname =fname.replace('.csv', '_validation.csv')
+    if not no_split: val_df.to_csv(val_fname, index=False)
+    print(f"Saved validation set with {val_df.shape[0]} images and {val_df['label'].nunique()} labels to {val_fname}")
+
+if __name__ == "__main__":
+    main()
