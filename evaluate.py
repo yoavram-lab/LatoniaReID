@@ -6,11 +6,22 @@ from transformers import AutoModel
 from huggingface_hub import hf_hub_download
 import torch
 
-from training_miewid import evaluate, DataFrameDataset, val_transform
+from training_miewid import embed, evaluate, DataFrameDataset, val_transform, load_ckpt
+import os
+import numpy as np
 
 device = 'cpu'
 
-def load_mega_model(mega_model_name):
+def get_model(model_name):
+    if model_name.startswith('MegaDescriptor'):
+        model, preprocess, model_name = get_mega_model(model_name)
+    elif model_name == 'miewid-msv3':
+        model, preprocess, model_name = get_miewid_model()
+    else:
+        raise ValueError("No model specified or model not recognized.")
+    return model_name,model,preprocess
+
+def get_mega_model(mega_model_name):
     if mega_model_name.startswith('MegaDescriptor'):
         model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=True)
         # model = AutoModel.from_pretrained(f"BVRA/{mega_model_name}", trust_remote_code=True)
@@ -41,27 +52,47 @@ def load_mega_model(mega_model_name):
     model = model.eval()
     return model, preprocess, mega_model_name
 
-def load_miewid_model():
+def get_miewid_model():
     model = AutoModel.from_pretrained('conservationxlabs/miewid-msv3', trust_remote_code=True).to(device)
     model = model.eval()
     preprocess = val_transform()
 
     return model, preprocess, "miewid-msv3"
 
+def get_embeddings(val_csv, model_name, model, val_dataset, device):
+    cache_file = f"results/{model_name}_{os.path.basename(val_csv)}.npz"
+    if os.path.exists(cache_file):
+        embeddings = np.load(cache_file)["embeddings"]
+        print(f"Loaded embeddings from {cache_file}")
+    else:
+        embeddings = embed(model.to(device), val_dataset, device=device)
+        np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
+        print(f"Saved embeddings to {cache_file}")
+    return embeddings
+
 @click.command()
 @click.argument('model_name', type=str)
 @click.option('--val_csv', type=str, default='bina_photos_validation.csv')
-def main(val_csv, model_name=None):
-    if model_name.startswith('MegaDescriptor'):
-        model, preprocess, model_name = load_mega_model(model_name)
-    elif model_name == 'miewid-msv3':
-        model, preprocess, model_name = load_miewid_model()
-    else:
-        raise ValueError("No model specified or model not recognized.")
-    print(f"Evaluating {model_name}...")
+@click.option('--checkpoint', type=str, default=None, help='Path to the model checkpoint')
+@click.option('--device', type=str, default='cpu', help='Device to run the model on (e.g., cpu, cuda)')
+def main(model_name, val_csv, checkpoint, device):
+    print(f"Evaluating {model_name} on {val_csv}...")
+    
+    model_name, model, preprocess = get_model(model_name)
+
     val_df = pd.read_csv(val_csv)
     val_dataset = DataFrameDataset(val_df, transform=preprocess)
-    metrics = evaluate(model, val_dataset, device=device)
+
+    if checkpoint is not None:
+        print(f"Loading checkpoint from {checkpoint}...")
+        load_ckpt(checkpoint, model, map_location=device)
+        model_name += '_' + checkpoint.split('/')[1]
+    
+    embeddings = get_embeddings(val_csv, model_name, model, val_dataset, device)
+    if device != 'cpu':
+        embeddings = torch.tensor(embeddings).to(device)
+    metrics = evaluate(embeddings, val_dataset)
+     
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
     print("{}".format(" ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
 
