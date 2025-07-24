@@ -5,6 +5,9 @@ import torch
 from transformers import AutoModel
 from huggingface_hub import hf_hub_download
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 def get_model(model_name):
     if model_name.startswith('MegaDescriptor'):
