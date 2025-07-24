@@ -1,63 +1,17 @@
-import timm
-from torchvision import transforms
+import os
 import click
 import pandas as pd
-from transformers import AutoModel
-from huggingface_hub import hf_hub_download
-import torch
-
-from training_miewid import embed, evaluate, DataFrameDataset, val_transform, load_ckpt
-import os
 import numpy as np
 
+import torch
+from pytorch_metric_learning.distances import CosineSimilarity
+
+from sklearn.metrics import roc_auc_score, average_precision_score
+
+from models import get_model
+from train import embed, DataFrameDataset, load_ckpt
+
 device = 'cpu'
-
-def get_model(model_name):
-    if model_name.startswith('MegaDescriptor'):
-        model, preprocess, model_name = get_mega_model(model_name)
-    elif model_name == 'miewid-msv3':
-        model, preprocess, model_name = get_miewid_model()
-    else:
-        raise ValueError("No model specified or model not recognized.")
-    return model_name,model,preprocess
-
-def get_mega_model(mega_model_name):
-    if mega_model_name.startswith('MegaDescriptor'):
-        model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=True)
-        # model = AutoModel.from_pretrained(f"BVRA/{mega_model_name}", trust_remote_code=True)
-        # model(imgs).pooler_output to get embeddings of dim 1536
-
-        img_size = int(mega_model_name.split('-')[-1])
-        preprocess = transforms.Compose([
-            transforms.Resize(size=(img_size, img_size)),
-            transforms.ToTensor(), 
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        ])
-    elif mega_model_name == 'MegaDescriptor-EfficientNetB3':
-        ckpt = hf_hub_download(f"BVRA/{mega_model_name}", "pytorch_model.bin")
-        state = torch.load(ckpt, map_location="cpu", weights_only=False)
-        if isinstance(state, dict) and 'model' in state:
-            state = state['model']
-        # drop missing classifier keys (we're using the encoder only)
-        state = {k: v for k, v in state.items() if not k.startswith('classifier.')}
-        model = timm.create_model("efficientnet_b3", pretrained=False, num_classes=0, global_pool='avg')
-        model.load_state_dict(state, strict=False)
-
-        preprocess = transforms.Compose([
-            transforms.Resize(size=(img_size, img_size)), 
-            transforms.ToTensor(), 
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-    model = model.to(device)
-    model = model.eval()
-    return model, preprocess, mega_model_name
-
-def get_miewid_model():
-    model = AutoModel.from_pretrained('conservationxlabs/miewid-msv3', trust_remote_code=True).to(device)
-    model = model.eval()
-    preprocess = val_transform()
-
-    return model, preprocess, "miewid-msv3"
 
 def get_embeddings(val_csv, model_name, model, val_dataset, device):
     cache_file = f"results/{model_name}_{os.path.basename(val_csv)}.npz"
@@ -69,6 +23,117 @@ def get_embeddings(val_csv, model_name, model, val_dataset, device):
         np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
         print(f"Saved embeddings to {cache_file}")
     return embeddings
+
+
+def labels_and_scores(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+
+    labels = []
+    scores = []
+    for i in range(n):
+        qi_label = query_labels[i]
+        qi_date = query_dates[i]
+        sim_row = similarity_matrix[i]
+        for j in range(m):
+            if qi_date == ref_dates[j]: # ignore pairs from same date
+                continue
+            labels.append(qi_label == ref_labels[j])  # 1 if same individual, 0 if different
+            scores.append(sim_row[j])
+
+    return torch.tensor(labels, dtype=int), torch.tensor(scores, dtype=float)
+
+def recall_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    correct = 0
+    total = 0
+
+    ref_labels_set = set(ref_labels)
+    for i in range(n):
+        if query_labels[i] not in ref_labels_set:  # skip if no matching identity in ref
+            continue
+        sorted_idx = similarity_matrix[i].argsort(descending=True)  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        total += 1  # count this query even if valid_candidates has fewer than k elements
+        # Check if any of the top-k valid candidates matches the query identity
+        if any(query_labels[i] == ref_labels[j] for j in valid_candidates[:k]):
+            correct += 1
+    return correct / total if total > 0 else 0.0
+
+def precision_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    correct = 0
+    total = 0
+
+    for i in range(n):
+        sorted_idx = similarity_matrix[i].argsort(descending=True)#[::-1]  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        total += min(k, len(valid_candidates))  # count only up to k candidates
+        # Check if any of the top-k valid candidates matches the query identity
+        correct += sum(query_labels[i] == ref_labels[j] for j in valid_candidates[:k])
+    
+    return correct / total if total > 0 else 0.0
+
+
+def R_precision(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    precisions = []
+    
+    for i in range(n):
+        sorted_idx = similarity_matrix[i].argsort(descending=True)#[::-1]  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        is_relevant = [query_labels[i] == ref_labels[j] for j in valid_candidates]
+        R = np.sum(is_relevant) # number of relevant items
+        if R > 0: # skip i if no relevant items
+            r = np.sum(is_relevant[:R]) # number of relevant items in top-R
+            precisions.append(r / R)
+    return float(np.mean(precisions)) if precisions else 0.0
+
+def mean_average_precision_at_R(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    average_precisions = []
+    
+    for i in range(n):
+        sorted_idx = similarity_matrix[i].argsort(descending=True)#[::-1]  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        is_relevant = np.array([query_labels[i] == ref_labels[j] for j in valid_candidates], dtype=np.int32)
+        R = np.sum(is_relevant) # number of relevant items
+        if R > 0: # skip i if no relevant items
+            cumsum_relevant = np.cumsum(is_relevant)
+            precision_at_r = cumsum_relevant[:R] / (np.arange(1, R + 1))
+            average_precisions.append(np.mean(precision_at_r))
+
+    return np.mean(average_precisions) if average_precisions else 0.0
+
+
+def evaluate(embeddings, dataset, similarity_func=CosineSimilarity()):
+    similarity_matrix = similarity_func(embeddings, embeddings)
+    labels, scores = labels_and_scores(
+        similarity_matrix, 
+        dataset.labels, dataset.labels, 
+        dataset.dates, dataset.dates
+    )
+    return {
+        "AUC": roc_auc_score(labels.cpu(), scores.cpu()),
+        "AP": average_precision_score(labels.cpu(), scores.cpu()),
+        "Precision@1": precision_at_k(similarity_matrix, dataset.labels, dataset.labels, 
+                                     dataset.dates, dataset.dates, k=1),
+        "Recall@1": recall_at_k(similarity_matrix, dataset.labels, dataset.labels, 
+                              dataset.dates, dataset.dates, k=1),
+        "R-Precision": R_precision(similarity_matrix, dataset.labels, dataset.labels, 
+                                     dataset.dates, dataset.dates),
+        "mAP@R": mean_average_precision_at_R(similarity_matrix, dataset.labels, dataset.labels, 
+                                              dataset.dates, dataset.dates)
+    }
 
 @click.command()
 @click.argument('model_name', type=str)
