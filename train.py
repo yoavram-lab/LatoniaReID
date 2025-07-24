@@ -1,0 +1,404 @@
+# import os
+# os.environ["KMP_DUPLICATE_LIB_OK"] = "True"  # Workaround for OpenMP initialization error on macOS
+import click
+from pathlib import Path
+from datetime import datetime
+import csv
+import shutil
+from pathlib import Path
+from PIL import Image
+import pandas as pd
+import numpy as np
+from sklearn.metrics import roc_auc_score, average_precision_score
+
+from tqdm import tqdm
+from transformers import AutoModel
+import torch
+from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader
+from pytorch_metric_learning.samplers import MPerClassSampler
+from pytorch_metric_learning import losses
+from pytorch_metric_learning.distances import CosineSimilarity
+
+import config
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+if device == "cuda":
+    torch.set_float32_matmul_precision('medium')  
+    torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
+
+def save_ckpt(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch):
+    state = {
+        'model': model.state_dict(), 
+        'loss_func': loss_func.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'loss_optimizer': loss_optimizer.state_dict(),
+        'epoch': epoch
+    }
+    torch.save(state, ckpt_path)
+
+def load_ckpt(ckpt_path, model, loss_func=None, optimizer=None, loss_optimizer=None, map_location=device):
+    checkpoint = torch.load(ckpt_path, map_location=map_location)
+    model.load_state_dict(checkpoint['model'])
+    if loss_func is not None:
+        loss_func.load_state_dict(checkpoint['loss_func'])
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+    if loss_optimizer is not None:
+        loss_optimizer.load_state_dict(checkpoint['loss_optimizer'])
+    return checkpoint.get('epoch', None)
+
+class DataFrameDataset(Dataset):
+    def __init__(self, df, transform):
+        self.paths = df['rel_path'].tolist() # bbox/2019-5/215/IMGP0147.jpg
+        try:
+            self.dates = df['date'].tolist() # 2019-5
+        except KeyError:
+            self.dates = [p.split('/')[1] for p in self.paths]  # extract date from path
+        self.labels = df['label'].tolist() # labels are encoded from ind (215 in path above) 
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        img_path = self.paths[idx]
+        img = Image.open(img_path).convert("RGB")
+        img = self.transform(img)
+        return img, self.labels[idx]
+
+def train_transform():
+    return transforms.Compose([
+        transforms.Resize((440, 440)),        
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(), 
+        transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]),
+    ])
+
+def val_transform():
+    return transforms.Compose([
+        transforms.Resize((440, 440)),            
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]),
+    ])
+
+def train_dataloader(train_dataset, m, batch_size, num_workers):
+    sampler = MPerClassSampler(
+        train_dataset.labels, 
+        m=m, 
+        length_before_new_iter=len(train_dataset.labels)
+    )
+    return DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+        drop_last=True,
+        pin_memory=True          # for faster data transfer to GPU
+    )
+
+def val_dataloader(dataset, batch_size, num_workers):
+    # No PK/M-per-class sampler for validation
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,   # any size that fits GPU
+        shuffle=False,           # keep deterministic order
+        num_workers=num_workers,
+        drop_last=False,
+        pin_memory=True          # for faster data transfer to GPU
+    )
+
+def get_model(backbone_name):
+    model = AutoModel.from_pretrained(backbone_name, trust_remote_code=True).to(device)
+    for p in model.parameters():
+        p.requires_grad = True
+    model.train()
+    model.apply(freeze_bn)
+    return model
+
+def get_loss_func(num_classes, embedding_size, margin, scale, sub_centers):
+    return losses.SubCenterArcFaceLoss(
+        num_classes=num_classes, 
+        embedding_size=embedding_size, 
+        margin=margin, 
+        sub_centers=sub_centers,
+        scale=scale
+    ).to(device)
+
+
+def freeze_bn(module):
+    if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+        module.eval()                                   # no running stats update
+        module.weight.requires_grad_(False)             # freeze γ
+        module.bias.requires_grad_(False)               # freeze β
+
+def embed(model, dataset, device=device, batch_size=32, num_workers=4):
+    model.eval()
+    embeddings = []
+    with torch.no_grad():
+        data_loader = val_dataloader(dataset, batch_size=batch_size, num_workers=num_workers)
+        pbar = tqdm(data_loader, desc=f"Embedding on {device}", leave=False, total=(len(dataset) + batch_size - 1) // batch_size)
+        for data, label in pbar:
+            data = data.to(device)
+            if device.startswith('cuda'):
+                with torch.amp.autocast(device):
+                    emb = model(data)
+            else:
+                emb = model(data)
+            embeddings.append(emb)
+    embeddings = torch.cat(embeddings, dim=0)
+    return embeddings
+
+def labels_and_scores(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+
+    labels = []
+    scores = []
+    for i in range(n):
+        qi_label = query_labels[i]
+        qi_date = query_dates[i]
+        sim_row = similarity_matrix[i]
+        for j in range(m):
+            if qi_date == ref_dates[j]: # ignore pairs from same date
+                continue
+            labels.append(qi_label == ref_labels[j])  # 1 if same individual, 0 if different
+            scores.append(sim_row[j])
+
+    return torch.tensor(labels, dtype=int), torch.tensor(scores, dtype=float)
+
+def recall_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    correct = 0
+    total = 0
+
+    ref_labels_set = set(ref_labels)
+    for i in range(n):
+        if query_labels[i] not in ref_labels_set:  # skip if no matching identity in ref
+            continue
+        sorted_idx = similarity_matrix[i].argsort(descending=True)  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        total += 1  # count this query even if valid_candidates has fewer than k elements
+        # Check if any of the top-k valid candidates matches the query identity
+        if any(query_labels[i] == ref_labels[j] for j in valid_candidates[:k]):
+            correct += 1
+    return correct / total if total > 0 else 0.0
+
+def precision_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    correct = 0
+    total = 0
+
+    for i in range(n):
+        sorted_idx = similarity_matrix[i].argsort(descending=True)#[::-1]  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        total += min(k, len(valid_candidates))  # count only up to k candidates
+        # Check if any of the top-k valid candidates matches the query identity
+        correct += sum(query_labels[i] == ref_labels[j] for j in valid_candidates[:k])
+    
+    return correct / total if total > 0 else 0.0
+
+
+def R_precision(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    precisions = []
+    
+    for i in range(n):
+        sorted_idx = similarity_matrix[i].argsort(descending=True)#[::-1]  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        is_relevant = [query_labels[i] == ref_labels[j] for j in valid_candidates]
+        R = np.sum(is_relevant) # number of relevant items
+        if R > 0: # skip i if no relevant items
+            r = np.sum(is_relevant[:R]) # number of relevant items in top-R
+            precisions.append(r / R)
+    return float(np.mean(precisions)) if precisions else 0.0
+
+def mean_average_precision_at_R(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
+    n = len(query_labels)
+    m = len(ref_labels)
+    assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    average_precisions = []
+    
+    for i in range(n):
+        sorted_idx = similarity_matrix[i].argsort(descending=True)#[::-1]  # descending order
+        valid_candidates = [j for j in sorted_idx if query_dates[i] != ref_dates[j]] # ignore pairs from same date
+        is_relevant = np.array([query_labels[i] == ref_labels[j] for j in valid_candidates], dtype=np.int32)
+        R = np.sum(is_relevant) # number of relevant items
+        if R > 0: # skip i if no relevant items
+            cumsum_relevant = np.cumsum(is_relevant)
+            precision_at_r = cumsum_relevant[:R] / (np.arange(1, R + 1))
+            average_precisions.append(np.mean(precision_at_r))
+
+    return np.mean(average_precisions) if average_precisions else 0.0
+
+
+def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
+    model.train()
+    model.apply(freeze_bn)
+    losses = []
+    pbar = tqdm(enumerate(train_loader), desc=f"Epoch {epoch}", total=len(train_loader), leave=False)
+    for batch_idx, (data, labels) in pbar:
+        data, labels = data.to(device), labels.to(device)
+        optimizer.zero_grad()
+        loss_optimizer.zero_grad()
+        with torch.amp.autocast(device):
+            embeddings = model(data)
+            loss = loss_func(embeddings, labels)
+        loss.backward()
+        optimizer.step()
+        loss_optimizer.step()
+        losses.append(loss.item())
+        pbar.set_postfix({"loss": losses[-1]})
+        
+    avg_loss = np.mean(losses)
+    return avg_loss
+
+
+def evaluate(embeddings, dataset, similarity_func=CosineSimilarity()):
+    similarity_matrix = similarity_func(embeddings, embeddings)
+    labels, scores = labels_and_scores(
+        similarity_matrix, 
+        dataset.labels, dataset.labels, 
+        dataset.dates, dataset.dates
+    )
+    return {
+        "AUC": roc_auc_score(labels.cpu(), scores.cpu()),
+        "AP": average_precision_score(labels.cpu(), scores.cpu()),
+        "Precision@1": precision_at_k(similarity_matrix, dataset.labels, dataset.labels, 
+                                     dataset.dates, dataset.dates, k=1),
+        "Recall@1": recall_at_k(similarity_matrix, dataset.labels, dataset.labels, 
+                              dataset.dates, dataset.dates, k=1),
+        "R-Precision": R_precision(similarity_matrix, dataset.labels, dataset.labels, 
+                                     dataset.dates, dataset.dates),
+        "mAP@R": mean_average_precision_at_R(similarity_matrix, dataset.labels, dataset.labels, 
+                                              dataset.dates, dataset.dates)
+    }
+
+@click.command()
+@click.option("--train_csv", type=str, required=True)
+@click.option("--val_csv", type=str, required=False, default=None)
+@click.option("--backbone_name", default="conservationxlabs/miewid-msv3")
+@click.option("--checkpoint", type=str, default=None, help="Path to a checkpoint to resume training.")
+@click.option("--m", type=int, default=4, help="Number of samples per class in each batch.")
+@click.option("--batch_size", type=int, default=24, help="Total batch size (must be divisible by m).")
+@click.option("--epochs", type=int, default=500)
+@click.option("--lr_backbone", type=float, default=2e-5)
+@click.option("--lr_head", type=float, default=1e-3)
+@click.option("--eval_interval", type=int, default=5)
+@click.option("--num_workers", type=int, default=4)
+def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers):
+    assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
+    print(f"Starting training with backbone: {backbone_name}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
+
+    backbone_tag = backbone_name.split("/")[-1]
+    ckpt_base = f"{config.CHECKPOINTS_FOLDER}/{backbone_tag}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    Path(ckpt_base).mkdir(parents=True, exist_ok=True)
+
+    # Copy train/val CSV file into the checkpoint directory
+    shutil.copy2(train_csv, Path(ckpt_base) / Path(train_csv).name)
+    print(f"Copied {train_csv} to {ckpt_base}")
+    shutil.copy2(val_csv, Path(ckpt_base) / Path(val_csv).name)
+    print(f"Copied {val_csv} to {ckpt_base}")
+
+    # create a CSV file to log results
+    csv_file = open(f'{ckpt_base}/metrics.csv', mode='w', newline='')
+    csv_writer = csv.writer(csv_file)
+
+    # load train data
+    train_df = pd.read_csv(train_csv)
+    remap_labels = {lbl:i for i, lbl in enumerate(train_df['label'].unique())} 
+    train_df['label'] = [remap_labels[lbl] for lbl in train_df['label']] 
+    num_classes = train_df['label'].max() + 1 
+
+    # load validation data
+    if val_csv is None: 
+        val_csv = train_csv 
+    val_df = pd.read_csv(val_csv)
+
+    ttm = train_transform()
+    vtm = val_transform()
+    train_dataset = DataFrameDataset(train_df, transform=ttm)
+    train_loader = train_dataloader(train_dataset, m, batch_size, num_workers=num_workers)
+    val_dataset = DataFrameDataset(val_df, transform=vtm)
+
+    # load model and loss function
+    model = get_model(backbone_name)
+    loss_func = get_loss_func(
+        num_classes=num_classes, 
+        embedding_size=model.final.in_features,
+        margin=0.5, 
+        scale=64.0, 
+        sub_centers=True
+    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr_backbone, weight_decay=1e-4)
+    loss_optimizer = torch.optim.AdamW(loss_func.parameters(), lr=lr_head, weight_decay=1e-4)
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
+    loss_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(loss_optimizer, T_max=epochs, eta_min=1e-6)
+
+    if checkpoint is not None:
+        print(f"Loading checkpoint from {checkpoint}...")
+        start_epoch = load_ckpt(checkpoint, model, loss_func, optimizer, loss_optimizer, map_location=device)
+        print(f"Resuming training from epoch {start_epoch + 1}")
+    else:
+        start_epoch = 1
+        
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Model parameters: total={total_params:,} | trainable={trainable_params:,}")
+
+    tic = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    best_epoch = 0
+    best_metric = 0
+    print(f"Starting training for {epochs} epochs at {tic}.")
+    for epoch in range(start_epoch, start_epoch + epochs):
+        loss = train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch)        
+        scheduler.step()
+        loss_scheduler.step()
+        
+        if epoch % eval_interval == 0 or epoch == 1 or epoch == epochs:
+            # evaluation
+            embeddings = embed(model, val_dataset)
+            metrics = evaluate(embeddings, val_dataset)
+            if epoch == 1: # print header
+                print("{:<6} {:<12} {}".format("epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
+                csv_writer.writerow(['epoch', 'train_loss', *metrics.keys()])
+            if epoch > 50 and metrics[-1] > best_matric:  # mAP@R high is better
+                best_matric = metrics[-1]
+                best_epoch = epoch
+                print(f"New best metric: {best_matric:.6f} at epoch {best_epoch}")
+                # Save the best model checkpoint
+                ckpt_path = f'{ckpt_base}/best_model.ckpt'
+                save_ckpt(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch)
+                print(f"Saved model checkpoint to {ckpt_path}")            
+            # print metrics
+            print("{:<6} {:<12.6f} {}".format(epoch, loss, " ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
+            csv_writer.writerow([epoch, loss, *metrics.values()])
+            csv_file.flush()
+    
+    toc = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"Training completed at {toc}.")
+    # Save model checkpoint
+    ckpt_path = f'{ckpt_base}/final_model.ckpt'
+    save_ckpt(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch)
+    print(f"Saved final model checkpoint to {ckpt_path}")
+
+if __name__ == "__main__":
+    main()
