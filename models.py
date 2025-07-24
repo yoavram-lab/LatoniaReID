@@ -57,23 +57,29 @@ def get_miewid_model():
 
     return model, preprocess, "miewid-msv3"
 
-def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch):
+def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch):
     state = {
         'model': model.state_dict(), 
         'loss_func': loss_func.state_dict(),
         'optimizer': optimizer.state_dict(),
         'loss_optimizer': loss_optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "loss_scheduler": loss_scheduler.state_dict(),
         'epoch': epoch
     }
     torch.save(state, ckpt_path)
 
-def load_checkpoint(checkpoint_path, model, loss_func=None, optimizer=None, loss_optimizer=None, map_location=None):
+def load_checkpoint(checkpoint_path, model, loss_func=None, optimizer=None, loss_optimizer=None, scheduler=None, loss_scheduler=None, map_location=None):
     checkpoint = torch.load(checkpoint_path, map_location=map_location)
     model.load_state_dict(checkpoint['model'])
     if loss_func is not None:
         loss_func.load_state_dict(checkpoint['loss_func'])
-    if optimizer is not None:
+    if optimizer is not None and "optimizer" in checkpoint:
         optimizer.load_state_dict(checkpoint['optimizer'])
-    if loss_optimizer is not None:
+    if loss_optimizer is not None and "loss_optimizer" in checkpoint:
         loss_optimizer.load_state_dict(checkpoint['loss_optimizer'])
+    if scheduler is not None and "scheduler" in checkpoint:
+        scheduler.load_state_dict(checkpoint['scheduler'])
+    if loss_scheduler is not None and "loss_scheduler" in checkpoint:
+        loss_scheduler.load_state_dict(checkpoint['loss_scheduler'])
     return checkpoint.get('epoch', None)

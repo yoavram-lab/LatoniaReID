@@ -216,8 +216,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
                 print(f"New best metric: {best_metric:.6f} at epoch {best_epoch}")
                 # Save the best model checkpoint
                 ckpt_path = f'{ckpt_base}/best_model.ckpt'
-                save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch)
-                print(f"Saved model checkpoint to {ckpt_path}")            
+                save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
+                print(f"Saved model checkpoint to {ckpt_path}")
             # print metrics
             print("{:<6} {:<12.6f} {}".format(epoch, loss, " ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
             csv_writer.writerow([epoch, loss, *metrics.values()])
@@ -227,7 +227,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     print(f"Training completed at {toc}.")
     # Save model checkpoint
     ckpt_path = f'{ckpt_base}/final_model.ckpt'
-    save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch)
+    save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
     print(f"Saved final model checkpoint to {ckpt_path}")
 
 if __name__ == "__main__":
