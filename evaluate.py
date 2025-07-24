@@ -2,26 +2,43 @@ import os
 import click
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
+from pathlib import Path
 
 import torch
 from pytorch_metric_learning.distances import CosineSimilarity
-
+from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score, average_precision_score
 
-from models import get_model
-from train import embed, DataFrameDataset, load_ckpt
+from models import get_model, load_checkpoint
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
 device = 'cpu'
 
-def get_embeddings(val_csv, model_name, model, val_dataset, device):
-    cache_file = f"results/{model_name}_{os.path.basename(val_csv)}.npz"
-    if os.path.exists(cache_file):
-        embeddings = np.load(cache_file)["embeddings"]
-        print(f"Loaded embeddings from {cache_file}")
-    else:
-        embeddings = embed(model.to(device), val_dataset, device=device)
-        np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
-        print(f"Saved embeddings to {cache_file}")
+def embed(model, dataset, device=device, batch_size=32, num_workers=4):
+    model.eval()
+    model = model.to(device)
+    embeddings = []
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,   # any size that fits GPU
+        shuffle=False,           # keep deterministic order
+        num_workers=num_workers,
+        drop_last=False,
+        pin_memory=True          # for faster data transfer to GPU
+    )
+    with torch.no_grad():
+        pbar = tqdm(dataloader, desc=f"Embedding on {device}", leave=False, total=(len(dataset) + batch_size - 1) // batch_size)
+        for data, label in pbar:
+            data = data.to(device)
+            if device.startswith('cuda'):
+                with torch.amp.autocast(device):
+                    emb = model(data)
+            else:
+                emb = model(data)
+            embeddings.append(emb)
+    embeddings = torch.cat(embeddings, dim=0)
     return embeddings
 
 
@@ -143,17 +160,26 @@ def evaluate(embeddings, dataset, similarity_func=CosineSimilarity()):
 def main(model_name, val_csv, checkpoint, device):
     print(f"Evaluating {model_name} on {val_csv}...")
     
-    model_name, model, preprocess = get_model(model_name)
+    model, preprocess, model_name = get_model(model_name)
 
     val_df = pd.read_csv(val_csv)
+    from train import DataFrameDataset
     val_dataset = DataFrameDataset(val_df, transform=preprocess)
 
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
-        load_ckpt(checkpoint, model, map_location=device)
-        model_name += '_' + checkpoint.split('/')[1]
-    
-    embeddings = get_embeddings(val_csv, model_name, model, val_dataset, device)
+        load_checkpoint(checkpoint, model, map_location=device)
+        model_name = checkpoint.split('/')[1]
+
+    cache_file = f"results/{model_name}_{Path(val_csv).stem}.npz"
+    if os.path.exists(cache_file):
+        embeddings = np.load(cache_file)["embeddings"]
+        print(f"Loaded embeddings from {cache_file}")
+    else:
+        embeddings = embed(model, val_dataset, device)
+        np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
+        print(f"Saved embeddings to {cache_file}")
+
     if device != 'cpu':
         embeddings = torch.tensor(embeddings).to(device)
     metrics = evaluate(embeddings, val_dataset)

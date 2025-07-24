@@ -1,5 +1,4 @@
 from transformers import AutoModel
-from train import val_transform
 from torchvision import transforms
 import timm
 import torch
@@ -9,12 +8,11 @@ from huggingface_hub import hf_hub_download
 
 def get_model(model_name):
     if model_name.startswith('MegaDescriptor'):
-        model, preprocess, model_name = get_mega_model(model_name)
+        return get_mega_model(model_name)
     elif model_name == 'miewid-msv3':
-        model, preprocess, model_name = get_miewid_model()
+        return get_miewid_model()
     else:
         raise ValueError("No model specified or model not recognized.")
-    return model_name,model,preprocess
 
 def get_mega_model(mega_model_name):
     if mega_model_name.startswith('MegaDescriptor'):
@@ -49,6 +47,33 @@ def get_mega_model(mega_model_name):
 def get_miewid_model():
     model = AutoModel.from_pretrained('conservationxlabs/miewid-msv3', trust_remote_code=True)
     model = model.eval()
-    preprocess = val_transform()
+    preprocess = transforms.Compose([
+        transforms.Resize((440, 440)),            
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]),
+    ])
 
     return model, preprocess, "miewid-msv3"
+
+def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, epoch):
+    state = {
+        'model': model.state_dict(), 
+        'loss_func': loss_func.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'loss_optimizer': loss_optimizer.state_dict(),
+        'epoch': epoch
+    }
+    torch.save(state, ckpt_path)
+
+def load_checkpoint(checkpoint_path, model, loss_func=None, optimizer=None, loss_optimizer=None, map_location=None):
+    checkpoint = torch.load(checkpoint_path, map_location=map_location)
+    model.load_state_dict(checkpoint['model'])
+    if loss_func is not None:
+        loss_func.load_state_dict(checkpoint['loss_func'])
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+    if loss_optimizer is not None:
+        loss_optimizer.load_state_dict(checkpoint['loss_optimizer'])
+    return checkpoint.get('epoch', None)
