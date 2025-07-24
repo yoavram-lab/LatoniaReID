@@ -202,8 +202,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
         loss = train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch)        
         scheduler.step()
         loss_scheduler.step()
-        
-        if epoch % eval_interval == 0 or epoch == 1 or epoch == epochs:
+
+        if epoch % eval_interval == 0 or epoch == start_epoch or epoch == start_epoch + epochs:
             # evaluation
             embeddings = embed(model, val_dataset, device)
             metrics = evaluate(embeddings, val_dataset)
