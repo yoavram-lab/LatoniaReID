@@ -131,18 +131,17 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--num_workers", type=int, default=4)
 def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers):
     assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
-    print(f"Starting training with backbone: {backbone_name}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
+    print(f"Starting training with backbone {backbone_name}, checkpoint {checkpoint}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
 
     backbone_tag = backbone_name.split("/")[-1]
     ckpt_base = f"{config.CHECKPOINTS_FOLDER}/{backbone_tag}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     Path(ckpt_base).mkdir(parents=True, exist_ok=True)
+    print(f"Checkpoints, CSVs, and metrics will be saved to {ckpt_base}")
 
     # Copy train/val CSV file into the checkpoint directory
     shutil.copy2(train_csv, Path(ckpt_base) / Path(train_csv).name)
-    print(f"Copied {train_csv} to {ckpt_base}")
     shutil.copy2(val_csv, Path(ckpt_base) / Path(val_csv).name)
-    print(f"Copied {val_csv} to {ckpt_base}")
-
+    
     # create a CSV file to log results
     csv_file = open(f'{ckpt_base}/metrics.csv', mode='w', newline='')
     csv_writer = csv.writer(csv_file)
@@ -186,7 +185,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
         start_epoch = load_checkpoint(checkpoint, model, loss_func, optimizer, loss_optimizer, map_location=device)
-        print(f"Resuming training from epoch {start_epoch + 1}")
+        start_epoch += 1
+        print(f"Resuming training from epoch {start_epoch}")
     else:
         start_epoch = 1
         
@@ -210,8 +210,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             if epoch == 1: # print header
                 print("{:<6} {:<12} {}".format("epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
                 csv_writer.writerow(['epoch', 'train_loss', *metrics.keys()])
-            if epoch > 50 and metrics[-1] > best_metric:  # mAP@R high is better
-                best_metric = metrics[-1]
+            if epoch > 50 and metrics['mAP@R'] > best_metric:  # mAP@R: high is better
+                best_metric = metrics['mAP@R']
                 best_epoch = epoch
                 print(f"New best metric: {best_metric:.6f} at epoch {best_epoch}")
                 # Save the best model checkpoint
