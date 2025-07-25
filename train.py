@@ -207,7 +207,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             # evaluation
             embeddings = embed(model, val_dataset, device)
             metrics = evaluate(embeddings, val_dataset)
-            if epoch == 1: # print header
+            if epoch == start_epoch: # print header
                 print("{:<6} {:<12} {}".format("epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
                 csv_writer.writerow(['epoch', 'train_loss', *metrics.keys()])
             if epoch > 50 and metrics['mAP@R'] > best_metric:  # mAP@R: high is better
