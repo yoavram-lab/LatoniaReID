@@ -50,9 +50,9 @@ class DataFrameDataset(Dataset):
         img = self.transform(img)
         return img, self.labels[idx]
 
-def train_transform():
+def train_transform(size=440):
     return transforms.Compose([
-        transforms.Resize((440, 440)),        
+        transforms.Resize((size, size)),        
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(), 
         transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
@@ -158,19 +158,27 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     val_df = pd.read_csv(val_csv)
 
     # load model and loss function
-    model, preprocess, _ = get_model(backbone_name)
+    model, preprocess, model_name = get_model(backbone_name)
     model = model.to(device)
     for p in model.parameters():
         p.requires_grad = True
+    
+    if hasattr(model, 'final'):
+        model_output_size = model.final.in_features
+    elif hasattr(model, 'num_features'):
+        model_output_size = model.num_features
+    else:
+        raise ValueError(f"Cannot determine model {model_name} output size.")    
+
     loss_func = get_loss_func(
-        num_classes=num_classes, 
-        embedding_size=model.final.in_features,
-        margin=0.5, 
+        num_classes=num_classes,
+        embedding_size=model_output_size,
+        margin=0.5,
         scale=64.0, 
         sub_centers=True
     ).to(device)
 
-    ttm = train_transform()
+    ttm = train_transform(size=preprocess.transforms[0].size[0])  # get size from preprocess
     vtm = preprocess
     train_dataset = DataFrameDataset(train_df, transform=ttm)
     train_loader = train_dataloader(train_dataset, m, batch_size, num_workers=num_workers)
