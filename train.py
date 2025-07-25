@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-if device == "cuda":
+if device.startswith("cuda"):
     torch.set_float32_matmul_precision('medium')  
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
 
