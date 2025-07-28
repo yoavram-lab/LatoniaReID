@@ -61,6 +61,7 @@ def get_miewid_model():
     return model, preprocess, "miewid-msv3"
 
 def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch):
+    model = model.module if isinstance(model, torch.nn.DataParallel) else model
     state = {
         'model': model.state_dict(), 
         'loss_func': loss_func.state_dict(),
