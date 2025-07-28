@@ -16,6 +16,8 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from pytorch_metric_learning.samplers import MPerClassSampler
 from pytorch_metric_learning import losses
+import wandb
+
 
 from evaluate import evaluate, embed
 from models import get_model, load_checkpoint, save_checkpoint
@@ -137,7 +139,10 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--eval_interval", type=int, default=5)
 @click.option("--num_workers", type=int, default=4)
 @click.option("--dataparallel/--no-dataparallel", default=False, help="Enable DataParallel for multi-GPU training.")
-def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel):
+@click.option("--margin", type=float, default=0.5, help="ArcFace margin parameter.")
+@click.option("--scale", type=float, default=64.0, help="ArcFace scale parameter.")
+@click.option("--sub_centers", type=int, default=3, help="Number of sub-centers for SubCenterArcFaceLoss.")
+def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers):
     assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
     print(f"Starting training with backbone {backbone_name}, checkpoint {checkpoint}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
 
@@ -181,9 +186,9 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     loss_func = get_loss_func(
         num_classes=num_classes,
         embedding_size=model_output_size,
-        margin=0.5,
-        scale=64.0, 
-        sub_centers=True
+        margin=margin,
+        scale=scale, 
+        sub_centers=sub_centers
     ).to(device)
 
     ttm = train_transform(size=preprocess.transforms[0].size[0])  # get size from preprocess
@@ -213,8 +218,17 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
 
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Model parameters: total={total_params:,} | trainable={trainable_params:,}")
+    print(f"Model parameters: total={total_params:,} | trainable={trainable_params:,}")  
 
+    wandb_run = wandb.init(
+        # Set the wandb entity where your project will be logged (generally your team name).
+        entity="yoavram",
+        # Set the wandb project where this run will be logged.
+        project="LatoniaReID",
+        # Track hyperparameters and run metadata.
+        config=click.get_current_context().params
+    )
+    
     tic = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     best_epoch = 0
     best_metric = 0
@@ -228,9 +242,10 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             # evaluation
             embeddings = embed(model, val_dataset, device)
             metrics = evaluate(embeddings, val_dataset)
-            if epoch == start_epoch: # print header
-                print("{:<6} {:<12} {}".format("epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
-                csv_writer.writerow(['epoch', 'train_loss', *metrics.keys()])
+            if epoch == start_epoch: 
+                # print header
+                print("{:<6} {:<12} {}".format "epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
+                csv_writer.writerow(['epoch', 'train_loss', *metrics.keys()])                
             if epoch > 50 and metrics['mAP@R'] > best_metric:  # mAP@R: high is better
                 best_metric = metrics['mAP@R']
                 best_epoch = epoch
@@ -239,10 +254,12 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
                 ckpt_path = f'{ckpt_base}/best_model.ckpt'
                 save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
                 print(f"Saved model checkpoint to {ckpt_path}")
+                wandb_run.log_artifact(ckpt_path, type='model')
             # print metrics
             print("{:<6} {:<12.6f} {}".format(epoch, loss, " ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
             csv_writer.writerow([epoch, loss, *metrics.values()])
             csv_file.flush()
+            wandb_run.log(metrics, step=epoch, commit=True)
     
     toc = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"Training completed at {toc}.")
@@ -250,6 +267,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     ckpt_path = f'{ckpt_base}/final_model.ckpt'
     save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
     print(f"Saved final model checkpoint to {ckpt_path}")
+if __name__ == "__main__":(ckpt_path, type='model')
+    main()run.finish()
 
 if __name__ == "__main__":
     main()
