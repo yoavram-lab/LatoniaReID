@@ -220,13 +220,11 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model parameters: total={total_params:,} | trainable={trainable_params:,}")  
 
+    wandb_config = click.get_current_context().params
+    wandb_config['start_epoch'] = start_epoch
     wandb_run = wandb.init(
-        # Set the wandb entity where your project will be logged (generally your team name).
-        entity="yoavram",
-        # Set the wandb project where this run will be logged.
         project="LatoniaReID",
-        # Track hyperparameters and run metadata.
-        config=click.get_current_context().params
+        config=wandb_config
     )
     
     tic = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
