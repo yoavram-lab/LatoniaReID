@@ -27,8 +27,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if device.startswith("cuda"):
-    torch.set_float32_matmul_precision('medium')  
+    torch.set_float32_matmul_precision('medium')
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
+    torch.backends.cudnn.benchmark = True  # speed up convolutions when input sizes are fixed
 
 
 class DataFrameDataset(Dataset):
@@ -99,7 +100,13 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
     losses = []
     pbar = tqdm(enumerate(train_loader), desc=f"Epoch {epoch}", total=len(train_loader), leave=False)
     for batch_idx, (data, labels) in pbar:
-        data, labels = data.to(device), labels.to(device)
+        # When using DataParallel, leave `data` on CPU so it can be scattered to GPUs.
+        # Only move `labels` to the main device for the loss computation.
+        if isinstance(model, torch.nn.DataParallel):
+            labels = labels.to(device, non_blocking=True)
+        else:
+            data = data.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
         optimizer.zero_grad()
         loss_optimizer.zero_grad()
         with torch.amp.autocast(device):
@@ -197,6 +204,11 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
         print(f"Resuming training from epoch {start_epoch}")
     else:
         start_epoch = 1
+
+    # Enable simple multi-GPU training
+    if device.startswith("cuda") and torch.cuda.device_count() > 1:
+        print(f"Using DataParallel with {torch.cuda.device_count()} GPUs.")
+        model = torch.nn.DataParallel(model)
         
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
