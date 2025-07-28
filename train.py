@@ -244,7 +244,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             metrics = evaluate(embeddings, val_dataset)
             if epoch == start_epoch: 
                 # print header
-                print("{:<6} {:<12} {}".format "epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
+                print("{:<6} {:<12} {}".format("epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
                 csv_writer.writerow(['epoch', 'train_loss', *metrics.keys()])                
             if epoch > 50 and metrics['mAP@R'] > best_metric:  # mAP@R: high is better
                 best_metric = metrics['mAP@R']
@@ -267,8 +267,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     ckpt_path = f'{ckpt_base}/final_model.ckpt'
     save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
     print(f"Saved final model checkpoint to {ckpt_path}")
-if __name__ == "__main__":(ckpt_path, type='model')
-    main()run.finish()
+    wandb_run.log_artifact(ckpt_path, type='model')
+    wandb_run.finish()
 
 if __name__ == "__main__":
     main()
