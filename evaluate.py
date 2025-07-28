@@ -142,10 +142,8 @@ def evaluate(embeddings, dataset, similarity_func=CosineSimilarity()):
     return {
         "AUC": roc_auc_score(labels.cpu(), scores.cpu()),
         "AP": average_precision_score(labels.cpu(), scores.cpu()),
-        "Precision@1": precision_at_k(similarity_matrix, dataset.labels, dataset.labels, 
-                                     dataset.dates, dataset.dates, k=1),
-        "Recall@1": recall_at_k(similarity_matrix, dataset.labels, dataset.labels, 
-                              dataset.dates, dataset.dates, k=1),
+        "Top-1 accuracy": precision_at_k(similarity_matrix, dataset.labels, dataset.labels, 
+                                         dataset.dates, dataset.dates, k=1),
         "R-Precision": R_precision(similarity_matrix, dataset.labels, dataset.labels, 
                                      dataset.dates, dataset.dates),
         "mAP@R": mean_average_precision_at_R(similarity_matrix, dataset.labels, dataset.labels, 
