@@ -136,7 +136,8 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--lr_head", type=float, default=1e-3)
 @click.option("--eval_interval", type=int, default=5)
 @click.option("--num_workers", type=int, default=4)
-def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers):
+@click.option("--dataparallel/--no-dataparallel", default=False, help="Enable DataParallel for multi-GPU training.")
+def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel):
     assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
     print(f"Starting training with backbone {backbone_name}, checkpoint {checkpoint}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
 
@@ -205,11 +206,11 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     else:
         start_epoch = 1
 
-    # Enable simple multi-GPU training
-    if device.startswith("cuda") and torch.cuda.device_count() > 1:
+    # Enable simple multi-GPU training if flag is set
+    if dataparallel and device == "cuda" and torch.cuda.device_count() > 1:
         print(f"Using DataParallel with {torch.cuda.device_count()} GPUs.")
         model = torch.nn.DataParallel(model)
-        
+
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model parameters: total={total_params:,} | trainable={trainable_params:,}")
