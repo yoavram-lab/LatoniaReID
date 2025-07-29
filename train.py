@@ -131,7 +131,7 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--val_csv", type=str, required=False, default=None)
 @click.option("--backbone_name", default="miewid-msv3")
 @click.option("--checkpoint", type=str, default=None, help="Path to a checkpoint to resume training.")
-@click.option("--m", type=int, default=4, help="Number of samples per class in each batch.")
+@click.option("--m", type=int, default=1, help="Number of samples per class in each batch.")
 @click.option("--batch_size", type=int, default=24, help="Total batch size (must be divisible by m).")
 @click.option("--epochs", type=int, default=500)
 @click.option("--lr_backbone", type=float, default=2e-5)
@@ -141,11 +141,11 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--dataparallel/--no-dataparallel", default=False, help="Enable DataParallel for multi-GPU training.")
 @click.option("--margin", type=float, default=0.5, help="ArcFace margin parameter.")
 @click.option("--scale", type=float, default=64.0, help="ArcFace scale parameter.")
-@click.option("--sub_centers", type=int, default=3, help="Number of sub-centers for SubCenterArcFaceLoss.")
+@click.option("--sub_centers", type=int, default=1, help="Number of sub-centers for SubCenterArcFaceLoss.")
 def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers):
     assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
     print(f"Starting training with backbone {backbone_name}, checkpoint {checkpoint}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
-
+    
     backbone_tag = backbone_name.split("/")[-1]
     ckpt_base = f"{config.CHECKPOINTS_FOLDER}/{backbone_tag}_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     Path(ckpt_base).mkdir(parents=True, exist_ok=True)
@@ -252,12 +252,18 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
                 ckpt_path = f'{ckpt_base}/best_model.ckpt'
                 save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
                 print(f"Saved model checkpoint to {ckpt_path}")
-                wandb_run.log_artifact(ckpt_path, type='model')
+                wandb_run.log_artifact(ckpt_path, type='model')            
             # print metrics
             print("{:<6} {:<12.6f} {}".format(epoch, loss, " ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
             csv_writer.writerow([epoch, loss, *metrics.values()])
             csv_file.flush()
+            wandb_run.log({'train_loss': loss}, step=epoch, commit=False)
             wandb_run.log(metrics, step=epoch, commit=True)
+            # early stopping based on mAP@R
+            if (epoch == 30 and metrics["mAP@R"] < 0.12 or 
+                epoch == 60 and metrics["mAP@R"] < 0.22 ):
+                print(f"Early stopping at epoch {epoch} with mAP@R {metrics['mAP@R']:.6f}")
+                break
     
     toc = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"Training completed at {toc}.")
