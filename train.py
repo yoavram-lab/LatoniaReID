@@ -222,6 +222,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
 
     wandb_config = click.get_current_context().params
     wandb_config['start_epoch'] = start_epoch
+    wandb_config['checkpoint'] = ckpt_base
     wandb_run = wandb.init(
         project="LatoniaReID",
         config=wandb_config
