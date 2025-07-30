@@ -41,6 +41,7 @@ class DataFrameDataset(Dataset):
             self.dates = df['date'].tolist() # 2019-5
         except KeyError:
             self.dates = [p.split('/')[1] for p in self.paths]  # extract date from path
+            #self.dates = [i for i, _ in enumerate(self.paths)]  # use index as date - different "date" per image
         self.labels = df['label'].tolist() # labels are encoded from ind (215 in path above) 
         self.transform = transform
 
