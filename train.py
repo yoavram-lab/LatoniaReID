@@ -263,7 +263,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             wandb_run.log(metrics, step=epoch, commit=True)
             # early stopping based on mAP@R
             if (epoch == 30 and metrics["mAP@R"] < 0.12 or 
-                epoch == 60 and metrics["mAP@R"] < 0.22 ):
+                epoch == 60 and metrics["mAP@R"] < 0.24 ):
                 print(f"Early stopping at epoch {epoch} with mAP@R {metrics['mAP@R']:.6f}")
                 break
     
