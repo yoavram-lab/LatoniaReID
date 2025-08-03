@@ -38,10 +38,10 @@ class DataFrameDataset(Dataset):
     def __init__(self, df, transform):
         self.paths = df['rel_path'].tolist() # bbox/2019-5/215/IMGP0147.jpg
         try:
-            self.dates = df['date'].tolist() # 2019-5
+            self.dates = df['date'].tolist() # 2019-5 # TODO 'group' column; for Latonia, use date, for piglets, use index
         except KeyError:
-            self.dates = [p.split('/')[1] for p in self.paths]  # extract date from path
-            #self.dates = [i for i, _ in enumerate(self.paths)]  # use index as date - different "date" per image
+            # self.dates = [p.split('/')[1] for p in self.paths]  # extract date from path
+            self.dates = [i for i, _ in enumerate(self.paths)]  # use index as date - different "date" per image
         self.labels = df['label'].tolist() # labels are encoded from ind (215 in path above) 
         self.transform = transform
 
