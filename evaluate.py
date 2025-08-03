@@ -30,7 +30,11 @@ def embed(model, dataset, device=device, batch_size=32, num_workers=4):
     )
     with torch.no_grad():
         pbar = tqdm(dataloader, desc=f"Embedding on {device}", leave=False, total=(len(dataset) + batch_size - 1) // batch_size)
-        for data, label in pbar:
+        for item in pbar:
+            if isinstance(item, tuple):
+                data = item[0]
+            else:
+                data = item
             data = data.to(device)
             if device.startswith('cuda'):
                 with torch.amp.autocast(device):
@@ -186,9 +190,9 @@ def main(model_name, val_csv, checkpoint, device):
         embeddings = embed(model, val_dataset, device)
         np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
         print(f"Saved embeddings to {cache_file}")
-
     if device != 'cpu':
         embeddings = torch.tensor(embeddings).to(device)
+        
     metrics = evaluate(embeddings, val_dataset)
      
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
