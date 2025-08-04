@@ -14,8 +14,16 @@ def get_model(model_name):
         return get_mega_model(model_name)
     elif model_name == 'miewid-msv3':
         return get_miewid_model()
+    elif model_name == 'efficientnetv2':
+        return get_efficientnet_model()
     else:
         raise ValueError("No model specified or model not recognized.")
+
+def get_efficientnet_model():
+    model = timm.create_model('efficientnetv2_rw_m.agc_in1k', pretrained=True, num_classes=0) # num_classes=0 for feature extraction
+    data_config = timm.data.resolve_model_data_config(model)
+    preprocess = timm.data.create_transform(**data_config, is_training=False)
+    return model, preprocess, 'efficientnetv2'
 
 def get_mega_model(mega_model_name):
     if mega_model_name.startswith('MegaDescriptor'):
