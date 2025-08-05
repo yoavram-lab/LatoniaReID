@@ -16,8 +16,20 @@ def get_model(model_name):
         return get_miewid_model()
     elif model_name == 'efficientnetv2':
         return get_efficientnet_model()
+    elif model_name == 'sift':
+        return get_sift_model()
     else:
         raise ValueError("No model specified or model not recognized.")
+
+def get_sift_model():
+    from sift import SimpleSIFT
+    model = SimpleSIFT()
+    preprocess = transforms.Compose([
+        transforms.Resize((440, 440)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+    return model, preprocess, 'sift'
 
 def get_efficientnet_model():
     model = timm.create_model('efficientnetv2_rw_m.agc_in1k', pretrained=True, num_classes=0) # num_classes=0 for feature extraction
