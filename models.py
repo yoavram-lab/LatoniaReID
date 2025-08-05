@@ -1,10 +1,3 @@
-from transformers import AutoModel
-from torchvision import transforms
-import timm
-import torch
-from transformers import AutoModel
-from huggingface_hub import hf_hub_download
-
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -23,6 +16,7 @@ def get_model(model_name):
 
 def get_sift_model():
     from sift import SimpleSIFT
+    from torchvision import transforms
     model = SimpleSIFT()
     preprocess = transforms.Compose([
         transforms.Resize((440, 440)),
@@ -32,13 +26,16 @@ def get_sift_model():
     return model, preprocess, 'sift'
 
 def get_efficientnet_model():
+    import timm
     model = timm.create_model('efficientnetv2_rw_m.agc_in1k', pretrained=True, num_classes=0) # num_classes=0 for feature extraction
     data_config = timm.data.resolve_model_data_config(model)
     preprocess = timm.data.create_transform(**data_config, is_training=False)
     return model, preprocess, 'efficientnetv2'
 
 def get_mega_model(mega_model_name):
+    from torchvision import transforms
     if mega_model_name.startswith('MegaDescriptor'):
+        import timm
         model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=True)
         # model = AutoModel.from_pretrained(f"BVRA/{mega_model_name}", trust_remote_code=True)
         # model(imgs).pooler_output to get embeddings of dim 1536
@@ -50,6 +47,7 @@ def get_mega_model(mega_model_name):
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
     elif mega_model_name == 'MegaDescriptor-EfficientNetB3':
+        from huggingface_hub import hf_hub_download
         ckpt = hf_hub_download(f"BVRA/{mega_model_name}", "pytorch_model.bin")
         state = torch.load(ckpt, map_location="cpu", weights_only=False)
         if isinstance(state, dict) and 'model' in state:
@@ -68,6 +66,8 @@ def get_mega_model(mega_model_name):
     return model, preprocess, mega_model_name
 
 def get_miewid_model():
+    from torchvision import transforms
+    from transformers import AutoModel
     model = AutoModel.from_pretrained('conservationxlabs/miewid-msv3', trust_remote_code=True)
     model = model.eval()
     preprocess = transforms.Compose([
@@ -81,6 +81,7 @@ def get_miewid_model():
     return model, preprocess, "miewid-msv3"
 
 def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch):
+    import torch
     model = model.module if isinstance(model, torch.nn.DataParallel) else model
     state = {
         'model': model.state_dict(), 
@@ -94,6 +95,7 @@ def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, sche
     torch.save(state, ckpt_path)
 
 def load_checkpoint(checkpoint_path, model, loss_func=None, optimizer=None, loss_optimizer=None, scheduler=None, loss_scheduler=None, map_location=None):
+    import torch
     checkpoint = torch.load(checkpoint_path, map_location=map_location)
     model.load_state_dict(checkpoint['model'])
     if loss_func is not None:
