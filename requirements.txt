@@ -6,3 +6,4 @@ transformers=4.53.0
 ultralytics=8.3.165
 timm=1.0.14
 openpyxl=3.1.5
+opencv-python>=4.4.0
