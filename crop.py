@@ -29,14 +29,15 @@ def bbox_image(image_path):
     return bbox
 
 
-def crop_bbox_and_pad_square(img : Image.Image, bbox : list, pad_color=(0,0,0)):
+def crop_bbox_and_pad_square(img : Image.Image, bbox : list, pad : bool, pad_color=(0,0,0)):
     w, h = img.size
     x1 = int(bbox[0] * w)
     y1 = int(bbox[1] * h)
     x2 = int((bbox[0] + bbox[2]) * w)
     y2 = int((bbox[1] + bbox[3]) * h)
     crop = img.crop((x1, y1, x2, y2))
-    crop = ImageOps.pad(crop, (max(crop.size), max(crop.size)), color=pad_color)
+    if pad:
+        crop = ImageOps.pad(crop, (max(crop.size), max(crop.size)), color=pad_color)
     return crop
 
 
@@ -54,18 +55,18 @@ def draw_image_with_bbox(image_path : Path, bbox : list):
 
 def bbox_image_folder(image_folder, output=None):
     image_file_names = path_utils.find_images(image_folder, recursive=True)
-    results = load_and_run_detector_batch(megadetector_model_name, image_file_names)
+    results = load_and_run_detector_batch(megadetector_model_name, image_file_names, quiet=True)
     if not output is None: 
         # Write results to a format that Timelapse and other downstream tools like.
         write_results_to_file(results, output)
     return results
 
 
-def crop_and_pad_folder(image_folder, bbox_file, output_folder):
+def crop_and_pad_folder(image_folder, bbox_file, output_folder, pad):
     bbox_dict = json_to_dict(bbox_file)
     for path, bbox in tqdm.tqdm(bbox_dict.items(), desc=f"Cropping images from {bbox_file} to {output_folder}"):
         img = Image.open(path)
-        crop = crop_bbox_and_pad_square(img, bbox)
+        crop = crop_bbox_and_pad_square(img, bbox, pad=pad)
         output_path = os.path.join(output_folder, *Path(path).parts[1:])
         os.makedirs(Path(output_path).parent, exist_ok=True)
         crop.save(output_path)
@@ -82,7 +83,8 @@ def json_to_dict(json_path):
 @click.argument('output', type=click.Path(path_type=Path))
 @click.option('--overwrite/--skip-existing', default=False, help="Overwrite existing output files or skip them (default: skip)")
 @click.option('--crop/--no-crop', default=False, help="Crop images to bounding box (default: no-crop)")
-def main(image_folder, output, overwrite, crop):
+@click.option('--pad/--no-pad', default=False, help="Pad images around bounding box (default: no-pad)")
+def main(image_folder, output, overwrite, crop, pad):
     if not output.suffix == '.json':
         raise click.BadParameter('Output file must be .json')
     if os.path.exists(output) and not overwrite:
@@ -94,7 +96,7 @@ def main(image_folder, output, overwrite, crop):
     if crop:
         output_folder = image_folder.parent / (image_folder.name + '_bbox')
         click.echo(f"Cropping images to bounding box from {image_folder} to {output_folder}...")
-        crop_and_pad_folder(image_folder, output, output_folder)
+        crop_and_pad_folder(image_folder, output, output_folder, pad=pad)
 
 
 if __name__ == '__main__':
