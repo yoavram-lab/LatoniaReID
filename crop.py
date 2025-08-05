@@ -94,7 +94,7 @@ def main(image_folder, output, overwrite, crop, pad):
         bbox_image_folder(image_folder, output)
         click.echo(f"Wrote results to {output}")
     if crop:
-        output_folder = image_folder.parent / (image_folder.name + '_bbox')
+        output_folder = image_folder.parent / (image_folder.name + '_bbox_pad' if pad else '_bbox')
         click.echo(f"Cropping images to bounding box from {image_folder} to {output_folder}...")
         crop_and_pad_folder(image_folder, output, output_folder, pad=pad)
 
