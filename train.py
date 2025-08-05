@@ -27,7 +27,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if device.startswith("cuda"):
     torch.set_float32_matmul_precision('medium')
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
@@ -38,10 +38,10 @@ class DataFrameDataset(Dataset):
     def __init__(self, df, transform):
         self.paths = df['rel_path'].tolist() # bbox/2019-5/215/IMGP0147.jpg
         try:
-            self.dates = df['date'].tolist() # 2019-5 # TODO 'group' column; for Latonia, use date, for piglets, use index
+            self.dates = df['date'].tolist() # 2019-5
         except KeyError:
             self.dates = [p.split('/')[1] for p in self.paths]  # extract date from path
-            # self.dates = [i for i, _ in enumerate(self.paths)]  # use index as date - different "date" per image
+            #self.dates = [i for i, _ in enumerate(self.paths)]  # use index as date - different "date" per image
         self.labels = df['label'].tolist() # labels are encoded from ind (215 in path above) 
         self.transform = transform
 
@@ -125,8 +125,6 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
     return avg_loss
 
 
-
-
 @click.command()
 @click.option("--train_csv", type=str, required=True)
 @click.option("--val_csv", type=str, required=False, default=None)
@@ -143,7 +141,8 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--margin", type=float, default=0.5, help="ArcFace margin parameter.")
 @click.option("--scale", type=float, default=64.0, help="ArcFace scale parameter.")
 @click.option("--sub_centers", type=int, default=1, help="Number of sub-centers for SubCenterArcFaceLoss.")
-def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers):
+@click.option("--early_stopping/--no-early-stopping", default=True, help="Enable early stopping based on mAP@R.")
+def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers, early_stopping):
     assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
     print(f"Starting training with backbone {backbone_name}, checkpoint {checkpoint}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
     
@@ -192,7 +191,11 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
         sub_centers=sub_centers
     ).to(device)
 
-    ttm = train_transform(size=preprocess.transforms[0].size[0])  # get size from preprocess
+    try: # get size from preprocess
+        size = preprocess.transforms[0].size[0]  
+    except TypeError:
+        size = preprocess.transforms[0].size 
+    ttm = train_transform(size=size) 
     vtm = preprocess
     train_dataset = DataFrameDataset(train_df, transform=ttm)
     train_loader = train_dataloader(train_dataset, m, batch_size, num_workers=num_workers)
@@ -223,7 +226,10 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
 
     wandb_config = click.get_current_context().params
     wandb_config['start_epoch'] = start_epoch
-    wandb_config['checkpoint'] = ckpt_base
+    wandb_config['checkpoint'] = checkpoint
+    wandb_config['ckpt_base'] = ckpt_base
+    wandb_config['model_name'] = model_name
+    wandb_config['device'] = device
     wandb_run = wandb.init(
         project="LatoniaReID",
         config=wandb_config
@@ -262,7 +268,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             wandb_run.log({'train_loss': loss}, step=epoch, commit=False)
             wandb_run.log(metrics, step=epoch, commit=True)
             # early stopping based on mAP@R
-            if (epoch == 30 and metrics["mAP@R"] < 0.12 or 
+            if early_stopping and (
+                epoch == 30 and metrics["mAP@R"] < 0.12 or 
                 epoch == 60 and metrics["mAP@R"] < 0.24 ):
                 print(f"Early stopping at epoch {epoch} with mAP@R {metrics['mAP@R']:.6f}")
                 break

@@ -31,7 +31,7 @@ def embed(model, dataset, device=device, batch_size=32, num_workers=4):
     with torch.no_grad():
         pbar = tqdm(dataloader, desc=f"Embedding on {device}", leave=False, total=(len(dataset) + batch_size - 1) // batch_size)
         for item in pbar:
-            if isinstance(item, tuple):
+            if isinstance(item, (tuple, list)):
                 data = item[0]
             else:
                 data = item
@@ -135,9 +135,7 @@ def mean_average_precision_at_R(similarity_matrix, query_labels, ref_labels, que
 
     return np.mean(average_precisions) if average_precisions else 0.0
 
-
-def evaluate(embeddings, dataset, similarity_func=CosineSimilarity()):
-    similarity_matrix = similarity_func(embeddings, embeddings)
+def evaluate(similarity_matrix, dataset):
     labels, scores = labels_and_scores(
         similarity_matrix, 
         dataset.labels, dataset.labels, 
@@ -193,8 +191,10 @@ def main(model_name, val_csv, checkpoint, device):
     if device != 'cpu':
         embeddings = torch.tensor(embeddings).to(device)
         
-    metrics = evaluate(embeddings, val_dataset)
-     
+    similarity_func = CosineSimilarity()
+    similarity_matrix = similarity_func(embeddings, embeddings)
+    metrics = evaluate(similarity_matrix, val_dataset)
+
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
     print("{}".format(" ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
 
