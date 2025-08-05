@@ -31,7 +31,7 @@ def embed(model, dataset, device=device, batch_size=32, num_workers=4):
     with torch.no_grad():
         pbar = tqdm(dataloader, desc=f"Embedding on {device}", leave=False, total=(len(dataset) + batch_size - 1) // batch_size)
         for item in pbar:
-            if isinstance(item, tuple):
+            if isinstance(item, (tuple, list)):
                 data = item[0]
             else:
                 data = item
