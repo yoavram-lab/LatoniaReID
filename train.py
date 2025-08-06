@@ -57,8 +57,8 @@ class DataFrameDataset(Dataset):
 def train_transform(size=440):
     return transforms.Compose([
         transforms.Resize((size, size)),        
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(), 
+        # transforms.RandomHorizontalFlip(), # head at top
+        # transforms.RandomVerticalFlip(), # head at top
         transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
         transforms.ToTensor(),
         transforms.Normalize(
