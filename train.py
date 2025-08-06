@@ -16,6 +16,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from pytorch_metric_learning.samplers import MPerClassSampler
 from pytorch_metric_learning import losses
+from pytorch_metric_learning.distances import CosineSimilarity
 import wandb
 
 
@@ -27,7 +28,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-device = "cuda:1" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if device.startswith("cuda"):
     torch.set_float32_matmul_precision('medium')
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
@@ -247,7 +248,9 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
         if epoch % eval_interval == 0 or epoch == start_epoch or epoch == start_epoch + epochs:
             # evaluation
             embeddings = embed(model, val_dataset, device)
-            metrics = evaluate(embeddings, val_dataset)
+            similarity_func = CosineSimilarity()
+            similarity_matrix = similarity_func(embeddings, embeddings)
+            metrics = evaluate(similarity_matrix, val_dataset)
             if epoch == start_epoch: 
                 # print header
                 print("{:<6} {:<12} {}".format("epoch", "train_loss", " ".join([f"{k:<15}" for k in metrics.keys()])))
