@@ -190,13 +190,15 @@ def main(model_name, val_csv, checkpoint, device):
         print(f"Saved embeddings to {cache_file}")
     if device != 'cpu':
         embeddings = torch.tensor(embeddings).to(device)
-        
+    else:
+        embeddings = torch.tensor(embeddings)
+
     similarity_func = CosineSimilarity()
     similarity_matrix = similarity_func(embeddings, embeddings)
     metrics = evaluate(similarity_matrix, val_dataset)
 
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
-    print("{}".format(" ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
+    print("{}".format(" ".join([f"{v:<15.3f}" for v in metrics.values()])), flush=True)
 
 if __name__ == "__main__":
     main()
