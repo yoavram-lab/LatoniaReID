@@ -19,7 +19,7 @@ from pytorch_metric_learning import losses
 from pytorch_metric_learning.distances import CosineSimilarity
 import wandb
 
-
+from image_transform import ZoomCenterCrop
 from evaluate import evaluate, embed
 from models import get_model, load_checkpoint, save_checkpoint
 import config
@@ -54,17 +54,20 @@ class DataFrameDataset(Dataset):
         img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
         return img, self.labels[idx]
-
-def train_transform(size=440):
+    
+def get_train_transform(size=440):
     return transforms.Compose([
-        transforms.Resize((size, size)),        
-        # transforms.RandomHorizontalFlip(), # head at top
-        # transforms.RandomVerticalFlip(), # head at top
+        transforms.RandomRotation(5), 
+        ZoomCenterCrop(zoom=2.0),
+        transforms.RandomResizedCrop(size, scale=(0.8,1.0), interpolation=transforms.InterpolationMode.BICUBIC),        
+        # transforms.Resize((size, size)), # not needed, RandomResizedCrop already resizes
         transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.GaussianBlur(3, sigma=(0.1, 2.0)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225]),
+            std=[0.229, 0.224, 0.225]),        
     ])
 
 def train_dataloader(train_dataset, m, batch_size, num_workers):
@@ -196,11 +199,12 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
         size = preprocess.transforms[0].size[0]  
     except TypeError:
         size = preprocess.transforms[0].size 
-    ttm = train_transform(size=size) 
-    vtm = preprocess
-    train_dataset = DataFrameDataset(train_df, transform=ttm)
+    train_transforms = get_train_transform(size=size) 
+    val_transforms = preprocess
+    val_transforms.transforms.insert(0, ZoomCenterCrop(zoom=2.0))
+    train_dataset = DataFrameDataset(train_df, transform=train_transforms)
     train_loader = train_dataloader(train_dataset, m, batch_size, num_workers=num_workers)
-    val_dataset = DataFrameDataset(val_df, transform=vtm)
+    val_dataset = DataFrameDataset(val_df, transform=val_transforms)
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr_backbone, weight_decay=1e-4)
     loss_optimizer = torch.optim.AdamW(loss_func.parameters(), lr=lr_head, weight_decay=1e-4)
