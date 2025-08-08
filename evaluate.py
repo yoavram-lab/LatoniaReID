@@ -65,6 +65,11 @@ def labels_and_scores(similarity_matrix, query_labels, ref_labels, query_dates, 
 
     return torch.tensor(labels, dtype=int), torch.tensor(scores, dtype=float)
 
+# TODO 
+# To match standard definitions:
+# Precision@k: For each query, compute (# relevant in top-k) / k, then average over queries.
+# Recall@k: For each query, compute (# relevant in top-k) / (total # relevant for that query), then average over queries.
+
 def recall_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
     n = len(query_labels)
     m = len(ref_labels)
