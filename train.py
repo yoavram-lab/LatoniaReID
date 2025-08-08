@@ -28,7 +28,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-device = "cuda:1" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if device.startswith("cuda"):
     torch.set_float32_matmul_precision('medium')
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
@@ -271,7 +271,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
                 ckpt_path = f'{ckpt_base}/best_model.ckpt'
                 save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch)
                 print(f"Saved model checkpoint to {ckpt_path}")
-                wandb_run.log_artifact(ckpt_path, type='model')            
+                # wandb_run.log_artifact(ckpt_path, type='model')            
             # print metrics
             print("{:<6} {:<12.6f} {}".format(epoch, loss, " ".join([f"{v:<15.6f}" for v in metrics.values()])), flush=True)
             csv_writer.writerow([epoch, loss, *metrics.values()])
