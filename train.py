@@ -28,7 +28,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if device.startswith("cuda"):
     torch.set_float32_matmul_precision('medium')
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
@@ -67,7 +67,8 @@ def get_train_transform(size=440):
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225]),        
+            std=[0.229, 0.224, 0.225]),
+        # transforms.RandomErasing(p=0.25, scale=(0.02,0.2), value='random')
     ])
 
 def train_dataloader(train_dataset, m, batch_size, num_workers):
@@ -146,7 +147,8 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--scale", type=float, default=64.0, help="ArcFace scale parameter.")
 @click.option("--sub_centers", type=int, default=1, help="Number of sub-centers for SubCenterArcFaceLoss.")
 @click.option("--early_stopping/--no-early-stopping", default=True, help="Enable early stopping based on mAP@R.")
-def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers, early_stopping):
+@click.option("--load_optimizer/--no-load-optimizer", default=False, help="Load optimizers and schedulers from checkpoint.")
+def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers, early_stopping, load_optimizer):
     assert batch_size % m == 0, "Batch size must be divisible by m (number of positive samples per class)."
     print(f"Starting training with backbone {backbone_name}, checkpoint {checkpoint}, m={m}, batch_size={batch_size}, epochs={epochs}, lr_backbone={lr_backbone}, lr_head={lr_head}")
     
@@ -212,13 +214,15 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
     loss_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(loss_optimizer, T_max=epochs, eta_min=1e-6)
 
+    start_epoch = 1
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
-        start_epoch = load_checkpoint(checkpoint, model, loss_func, optimizer, loss_optimizer, map_location=device)
-        start_epoch += 1
+        if load_optimizer:
+            loaded_epoch = load_checkpoint(checkpoint, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, map_location=device)
+        else:
+            loaded_epoch = load_checkpoint(checkpoint, model, loss_func, map_location=device)
+        start_epoch += loaded_epoch
         print(f"Resuming training from epoch {start_epoch}")
-    else:
-        start_epoch = 1
 
     # Enable simple multi-GPU training if flag is set
     if dataparallel and device == "cuda" and torch.cuda.device_count() > 1:
