@@ -65,12 +65,32 @@ def labels_and_scores(similarity_matrix, query_labels, ref_labels, query_dates, 
 
     return torch.tensor(labels, dtype=int), torch.tensor(scores, dtype=float)
 
-# TODO 
-# To match standard definitions:
-# Precision@k: For each query, compute (# relevant in top-k) / k, then average over queries.
-# Recall@k: For each query, compute (# relevant in top-k) / (total # relevant for that query), then average over queries.
 
-def recall_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
+def recall_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k):
+    recalls = []
+    for i in range(len(query_labels)):
+        valid = [j for j in similarity_matrix[i].argsort(descending=True)
+                 if query_dates[i] != ref_dates[j]]
+        relevant = [j for j in range(len(ref_labels))
+                    if query_labels[i] == ref_labels[j] and query_dates[i] != ref_dates[j]]
+        R = len(relevant)
+        if R:
+            hits = sum(query_labels[i] == ref_labels[j] for j in valid[:k])
+            recalls.append(hits / R)
+    return float(np.mean(recalls)) if recalls else 0.0
+
+def precision_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k):
+    precisions = []
+    for i in range(len(query_labels)):
+        valid = [j for j in similarity_matrix[i].argsort(descending=True)
+                 if query_dates[i] != ref_dates[j]]
+        k_eff = min(k, len(valid))
+        if k_eff:
+            hits = sum(query_labels[i] == ref_labels[j] for j in valid[:k_eff])
+            precisions.append(hits / k_eff)
+    return float(np.mean(precisions)) if precisions else 0.0
+
+def top_k_accuracy(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k):
     n = len(query_labels)
     m = len(ref_labels)
     assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
@@ -89,7 +109,7 @@ def recall_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_da
             correct += 1
     return correct / total if total > 0 else 0.0
 
-def precision_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k=1):
+def micro_precision_at_k(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates, k):
     n = len(query_labels)
     m = len(ref_labels)
     assert similarity_matrix.shape == (n, m), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
@@ -149,7 +169,7 @@ def evaluate(similarity_matrix, dataset):
     return {
         "AUC": roc_auc_score(labels.cpu(), scores.cpu()),
         "AP": average_precision_score(labels.cpu(), scores.cpu()),
-        "Top-1 accuracy": precision_at_k(
+        "Top-1 accuracy": top_k_accuracy(
             similarity_matrix, dataset.labels, dataset.labels, 
             dataset.dates, dataset.dates, k=1),
         "Precision@3": precision_at_k(
