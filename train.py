@@ -19,7 +19,7 @@ from pytorch_metric_learning import losses
 from pytorch_metric_learning.distances import CosineSimilarity
 import wandb
 
-from image_transform import ZoomCenterCrop
+from image_transform import ZoomCenterCrop, ShufflePatches
 from evaluate import evaluate, embed
 from models import get_model, load_checkpoint, save_checkpoint
 import config
@@ -69,6 +69,7 @@ def get_train_transform(size=440):
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225]),
         # transforms.RandomErasing(p=0.25, scale=(0.02,0.2), value='random')
+        ShufflePatches(patch_size=110, prob=0.1)  # shuffle patches for data augmentation
     ])
 
 def train_dataloader(train_dataset, m, batch_size, num_workers):
