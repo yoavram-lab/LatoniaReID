@@ -222,6 +222,7 @@ def main(model_name, val_csv, checkpoint, device):
     similarity_matrix = similarity_func(embeddings, embeddings)
     metrics = evaluate(similarity_matrix, val_dataset)
 
+    print(f"{model_name} | {val_csv}:")
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
     print("{}".format(" ".join([f"{v:<15.3f}" for v in metrics.values()])), flush=True)
 
