@@ -48,6 +48,7 @@ def get_mega_model(mega_model_name):
         ])
     elif mega_model_name == 'MegaDescriptor-EfficientNetB3':
         from huggingface_hub import hf_hub_download
+        import torch
         ckpt = hf_hub_download(f"BVRA/{mega_model_name}", "pytorch_model.bin")
         state = torch.load(ckpt, map_location="cpu", weights_only=False)
         if isinstance(state, dict) and 'model' in state:
