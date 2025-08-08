@@ -28,7 +28,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if device.startswith("cuda"):
     torch.set_float32_matmul_precision('medium')
     torch.cuda.memory._set_allocator_settings("expandable_segments:True,max_split_size_mb:128")
@@ -59,7 +59,7 @@ def get_train_transform(size=440):
     return transforms.Compose([
         transforms.RandomRotation(5), 
         ZoomCenterCrop(zoom=2.0),
-        transforms.RandomResizedCrop(size, scale=(0.8,1.0), interpolation=transforms.InterpolationMode.BICUBIC),        
+        transforms.RandomResizedCrop(size, scale=(0.8, 1.0), interpolation=transforms.InterpolationMode.BICUBIC),        
         # transforms.Resize((size, size)), # not needed, RandomResizedCrop already resizes
         transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
         transforms.RandomGrayscale(p=0.2),
@@ -69,7 +69,7 @@ def get_train_transform(size=440):
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225]),
         # transforms.RandomErasing(p=0.25, scale=(0.02,0.2), value='random')
-        ShufflePatches(patch_size=110, prob=0.1)  # shuffle patches for data augmentation
+        # ShufflePatches(patch_size=110, prob=0.1)  # shuffle patches for data augmentation
     ])
 
 def train_dataloader(train_dataset, m, batch_size, num_workers):
@@ -281,8 +281,8 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
             wandb_run.log(metrics, step=epoch, commit=True)
             # early stopping based on mAP@R
             if early_stopping and (
-                epoch == 30 and metrics["mAP@R"] < 0.12 or 
-                epoch == 60 and metrics["mAP@R"] < 0.24 ):
+                epoch == 30 and metrics["mAP@R"] < 0.2 or 
+                epoch == 50 and metrics["mAP@R"] < 0.5 ):
                 print(f"Early stopping at epoch {epoch} with mAP@R {metrics['mAP@R']:.6f}")
                 break
     
