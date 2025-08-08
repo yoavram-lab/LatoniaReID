@@ -1,10 +1,25 @@
 import torch.nn.functional as F
+import torch
 
+class ShufflePatches:
+  def __init__(self, patch_size, prob=1.0):
+    self.patch_size = patch_size
+    self.prob = prob
+
+  def __call__(self, x): # x: (C, H, W) for a single image
+    if torch.rand(1) > self.prob:
+            return x  # Skip with probability 1 - self.prob
+    x = x.unsqueeze(0)  # add batch dimension because unfold assumes a batch
+    u = F.unfold(x, kernel_size=self.patch_size, stride=self.patch_size, padding=0)
+    pu = u[0][:, torch.randperm(u.shape[-1])]
+    f = F.fold(pu.unsqueeze(0), x.shape[-2:], kernel_size=self.patch_size, stride=self.patch_size, padding=0)
+    return f[0]
+  
 class ZoomCenterCrop:
     def __init__(self, zoom=1.0):
         self.zoom = zoom
-
-    def __call__(self, img):
+        
+    def __call__(self, img):        
         w, h = img.size
         m = int(min(h, w) / self.zoom)
         left = (w - m) // 2
@@ -30,14 +45,18 @@ if __name__ == "__main__":
         img = Image.open(img_path).convert("RGB")
         ts = transforms.Compose([
             transforms.RandomRotation(5), 
-            ZoomCenterCrop(zoom),            
-            transforms.Resize((440, 440)),
+            ZoomCenterCrop(zoom=2.0),
+            transforms.RandomResizedCrop(440, scale=(0.8,1.0), interpolation=transforms.InterpolationMode.BICUBIC),        
+            # transforms.Resize((size, size)), # not needed, RandomResizedCrop already resizes
             transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
-            transforms.ToTensor(),             
+            transforms.RandomGrayscale(p=0.2),
+            transforms.GaussianBlur(3, sigma=(0.1, 2.0)),
+            transforms.ToTensor(),
             transforms.Normalize(
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225]),
-            transforms.RandomErasing(p=0.25, scale=(0.02,0.2), value='random')
+            # transforms.RandomErasing(p=0.25, scale=(0.02,0.2), value='random')
+            ShufflePatches(patch_size=patch_size, prob=1.0)  # shuffle patches for data augmentation
         ])
         img_transformed = ts(img)
 
