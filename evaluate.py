@@ -10,6 +10,7 @@ from pytorch_metric_learning.distances import CosineSimilarity
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score, average_precision_score
 
+from image_transform import ZoomCenterCrop
 from models import get_model, load_checkpoint
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -198,7 +199,9 @@ def main(model_name, val_csv, checkpoint, device):
 
     val_df = pd.read_csv(val_csv)
     from train import DataFrameDataset
-    val_dataset = DataFrameDataset(val_df, transform=preprocess)
+    val_transforms = preprocess
+    val_transforms.transforms.insert(0, ZoomCenterCrop(zoom=2.0))
+    val_dataset = DataFrameDataset(val_df, transform=val_transforms)
 
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
