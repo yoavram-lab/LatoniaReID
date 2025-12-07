@@ -86,22 +86,11 @@ def process_folder(predictor, data_root, mask_root):
 
     print(f"\n✅ Processing Complete. Masks saved to: {mask_root}")
 
-def select_device(preferred: Optional[str] = None) -> torch.device:
-    if preferred and preferred.lower() == "mps":
-        print("⚠️  Ignoring requested mps device (not supported); falling back to CUDA/CPU.")
-    if preferred and preferred.lower() not in {"cuda", "cpu", "mps"}:
-        print(f"⚠️  Unknown device {preferred}; falling back to auto selection.")
-    if preferred and preferred.lower() == "cuda" and torch.cuda.is_available():
-        return torch.device("cuda")
-    if not preferred and torch.cuda.is_available():
-        return torch.device("cuda")
-    return torch.device("cpu")
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Masking images with SegmentAnythingModel.")
     parser.add_argument("--data-root", type=Path, default=Path("rotated"))
     parser.add_argument("--mask-root", type=Path, default=Path("rotated_sam"))
-    parser.add_argument("--device", type=str, default=None, help="Force device (cuda or cpu).")
+    parser.add_argument("--device", type=str, default="cpu", help="Force device (cuda or cpu).")
     args = parser.parse_args()
 
     device = select_device(args.device)
