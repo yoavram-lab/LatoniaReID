@@ -1,3 +1,5 @@
+from __future__ import annotations
+import argparse
 import torch
 import cv2
 import numpy as np
@@ -6,30 +8,21 @@ from pathlib import Path
 from tqdm import tqdm # Install with: pip install tqdm
 from segment_anything import sam_model_registry, SamPredictor
 
-# --- CONFIGURATION ---
-INPUT_ROOT = "rotated"       # Folder containing your images
-OUTPUT_ROOT = "rotated_sam"  # Where masks will be saved
-SAM_CHECKPOINT = "sam_vit_b_01ec64.pth"
-MODEL_TYPE = "vit_b"
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 # Supported image extensions
-VALID_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff'}
+VALID_EXTS = {'.jpg', '.jpeg'}
 
-def initialize_sam():
-    if not os.path.exists(SAM_CHECKPOINT):
-        raise FileNotFoundError(f"Checkpoint not found: {SAM_CHECKPOINT}")
+def initialize_sam(sam_checkpoint, sam_type, device):
+    if not os.path.exists(sam_checkpoint):
+        raise FileNotFoundError(f"Checkpoint not found: {sam_checkpoint}")
     
-    print(f"Loading {MODEL_TYPE} model on {DEVICE}...")
-    sam = sam_model_registry[MODEL_TYPE](checkpoint=SAM_CHECKPOINT)
-    sam.to(device=DEVICE)
+    print(f"Loading {sam_type} model on {device}...")
+    sam = sam_model_registry[sam_type](checkpoint=sam_checkpoint)
+    sam.to(device=device)
     return SamPredictor(sam)
 
-def process_dataset():
-    # 1. Setup
-    predictor = initialize_sam()
-    input_path = Path(INPUT_ROOT)
-    output_path = Path(OUTPUT_ROOT)
+def process_folder(predictor, data_root, mask_root):
+    input_path = Path(data_root)
+    output_path = Path(mask_root)
 
     # 2. Collect all image files first (for progress bar)
     all_files = []
@@ -41,9 +34,7 @@ def process_dataset():
     print(f"Found {len(all_files)} images. Starting processing...")
 
     # 3. Iterate and Process
-    counter = 0
-    for img_path in tqdm(all_files, desc="Segmenting"):
-        # if counter == 30: break
+    for img_path in tqdm(all_files, desc="Masking"):
         try:
             # --- A. Read Image ---
             # (cv2.imread doesn't handle special characters/paths well, numpy fix used)
@@ -89,15 +80,42 @@ def process_dataset():
             if is_success:
                 with open(str(save_path), "wb") as f:
                     f.write(buffer)
-                counter += 1
             
         except Exception as e:
             print(f"Error processing {img_path}: {e}")
 
-    print(f"\n✅ Processing Complete. Masks saved to: {OUTPUT_ROOT}")
+    print(f"\n✅ Processing Complete. Masks saved to: {mask_root}")
+
+def select_device(preferred: Optional[str] = None) -> torch.device:
+    if preferred and preferred.lower() == "mps":
+        print("⚠️  Ignoring requested mps device (not supported); falling back to CUDA/CPU.")
+    if preferred and preferred.lower() not in {"cuda", "cpu", "mps"}:
+        print(f"⚠️  Unknown device {preferred}; falling back to auto selection.")
+    if preferred and preferred.lower() == "cuda" and torch.cuda.is_available():
+        return torch.device("cuda")
+    if not preferred and torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Masking images with SegmentAnythingModel.")
+    parser.add_argument("--data-root", type=Path, default=Path("rotated"))
+    parser.add_argument("--mask-root", type=Path, default=Path("rotated_sam"))
+    parser.add_argument("--device", type=str, default=None, help="Force device (cuda or cpu).")
+    args = parser.parse_args()
+
+    device = select_device(args.device)
+    print(f"Using device: {device}")
+
+    sam_checkpoint = "sam_vit_b_01ec64.pth"
+    sam_type = "vit_b"
+
+    predictor = initialize_sam(sam_checkpoint, sam_type, device)
+
+    process_folder(predictor, args.data_root, args.mask_root)
+
+
+
 
 if __name__ == "__main__":
-    if not os.path.exists(INPUT_ROOT):
-        print(f"❌ Error: Input folder '{INPUT_ROOT}' does not exist.")
-    else:
-        process_dataset()
+    main()
