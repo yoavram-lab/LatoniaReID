@@ -93,7 +93,7 @@ def main() -> None:
     parser.add_argument("--device", type=str, default="cpu", help="Force device (cuda or cpu).")
     args = parser.parse_args()
 
-    device = select_device(args.device)
+    device = torch.device(args.device)
     print(f"Using device: {device}")
 
     sam_checkpoint = "sam_vit_b_01ec64.pth"
