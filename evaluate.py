@@ -1,4 +1,3 @@
-import os
 import click
 import pandas as pd
 import numpy as np
@@ -18,9 +17,7 @@ from datasets import DataFrameDataset
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-device = 'cpu'
-
-def embed(model, dataset, device=device, batch_size=32, num_workers=4):
+def embed(model, dataset, device: torch.device, batch_size=32, num_workers=4):
     model.eval()
     model = model.to(device)
     embeddings = []
@@ -40,8 +37,8 @@ def embed(model, dataset, device=device, batch_size=32, num_workers=4):
             else:
                 data = item
             data = data.to(device)
-            if device.startswith('cuda'):
-                with torch.amp.autocast(device):
+            if device.type == 'cuda':
+                with torch.amp.autocast(device.type):
                     emb = model(data)
             else:
                 emb = model(data)
@@ -200,6 +197,7 @@ def evaluate(similarity_matrix, dataset):
 def main(model_name, similarity_name, val_csv, checkpoint, device, zoomcentercrop):
     print(f"Evaluating {model_name} on {val_csv}...")
     
+    torch_device = torch.device(device)
     model, preprocess, model_name = get_model(model_name)
     similarity_func = get_similarity_function(similarity_name)
 
@@ -210,23 +208,36 @@ def main(model_name, similarity_name, val_csv, checkpoint, device, zoomcentercro
 
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
-        load_checkpoint(checkpoint, model, map_location=device)
+        load_checkpoint(checkpoint, model, map_location=torch_device)
         model_name = checkpoint.split('/')[1]
 
-    cache_file = f"results/{model_name}_{Path(val_csv).stem}.npz"
-    if os.path.exists(cache_file):
-        embeddings = np.load(cache_file)["embeddings"]
-        print(f"Loaded embeddings from {cache_file}")
-    else:
-        embeddings = embed(model, ds, device)
-        np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
-        print(f"Saved embeddings to {cache_file}")
-    if device != 'cpu':
-        embeddings = torch.tensor(embeddings).to(device)
-    else:
-        embeddings = torch.tensor(embeddings)
+    results_dir = Path("results")
+    results_dir.mkdir(exist_ok=True)
+    suffix = f"{model_name}_{Path(val_csv).stem}"
+    if zoomcentercrop:
+        suffix += "_zoom"
 
-    similarity_matrix = similarity_func(embeddings, embeddings)
+    emb_cache = results_dir / f"{suffix}_embeddings.pt"
+    if emb_cache.exists():
+        embeddings = torch.load(emb_cache, map_location=torch_device)
+        print(f"Loaded embeddings from {emb_cache}")
+    else:
+        embeddings = embed(model, ds, torch_device)
+        embeddings_cpu = embeddings.cpu()
+        torch.save(embeddings_cpu, emb_cache)
+        print(f"Saved embeddings to {emb_cache}")
+        embeddings = embeddings.to(torch_device)
+
+    sim_cache = results_dir / f"{suffix}_{similarity_name}_similarity.pt"
+    if sim_cache.exists():
+        similarity_matrix = torch.load(sim_cache, map_location="cpu")
+        print(f"Loaded similarity matrix from {sim_cache}")
+    else:
+        embeddings_for_sim = embeddings if embeddings.device == torch_device else embeddings.to(torch_device)
+        similarity_matrix = similarity_func(embeddings_for_sim, embeddings_for_sim).cpu()
+        torch.save(similarity_matrix, sim_cache)
+        print(f"Saved similarity matrix to {sim_cache}")
+
     metrics = evaluate(similarity_matrix, ds)
 
     print(f"{model_name} | {val_csv}:")
