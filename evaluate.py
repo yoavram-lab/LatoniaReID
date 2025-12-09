@@ -212,6 +212,7 @@ def evaluate(similarity_matrix, dataset):
 def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):    
     device = torch.device(device)
     model, preprocess, model_name = get_model(model_name)
+    
     if model_name.lower() == 'aliked':
         batch_size = 1  # ALIKED requires batch size of 1 due to variable number of keypoints
         num_workers = 0  # Disable multiprocessing for ALIKED to avoid issues
@@ -221,6 +222,7 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
         similarity_name = 'cosine'
         zoomcentercrop = True
     similarity = get_similarity_function(similarity_name)
+    similarity = similarity.to(device)
     print(f"Evaluating {model_name}-{similarity_name} on {val_csv} with device {device}...")
     
     df = pd.read_csv(val_csv) 
@@ -239,30 +241,21 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
 
     emb_cache = results_dir / f"{suffix}_embeddings.pt"
     if emb_cache.exists():
-        embeddings = torch.load(emb_cache, map_location=device)
+        embeddings = torch.load(emb_cache)        
         print(f"Loaded embeddings from {emb_cache}")
     else:
         embeddings = embed(model, ds, device, batch_size=batch_size, num_workers=num_workers)
-        if torch.is_tensor(embeddings):
-            torch.save(embeddings.cpu(), emb_cache)
-            embeddings = embeddings.to(device)
-        else:
-            torch.save(move_to_device(embeddings, torch.device("cpu")), emb_cache)
-            embeddings = move_to_device(embeddings, device)
+        torch.save(move_to_device(embeddings, torch.device("cpu")), emb_cache)        
         print(f"Saved embeddings to {emb_cache}")
+    embeddings = move_to_device(embeddings, device)
 
     sim_cache = results_dir / f"{suffix}_{similarity_name}_similarity.pt"
     if sim_cache.exists():
         similarity_matrix = torch.load(sim_cache, map_location="cpu")
         print(f"Loaded similarity matrix from {sim_cache}")
-    else:
-        if torch.is_tensor(embeddings):
-            embeddings_for_sim = embeddings if embeddings.device == device else embeddings.to(device)
-            similarity_matrix = similarity(embeddings_for_sim, embeddings_for_sim).cpu()
-        else:
-            embeddings_for_sim = move_to_device(embeddings, device)
-            similarity_matrix = similarity(embeddings_for_sim, embeddings_for_sim)
-            similarity_matrix = torch.as_tensor(similarity_matrix).cpu()
+    else:        
+        similarity_matrix = similarity(embeddings, embeddings)
+        similarity_matrix = torch.as_tensor(similarity_matrix).cpu()
         torch.save(similarity_matrix, sim_cache)
         print(f"Saved similarity matrix to {sim_cache}")
 
