@@ -20,8 +20,24 @@ def get_model(model_name):
 def get_aliked_model():
     from lightglue import ALIKED
     from torchvision import transforms
+    from torchvision.transforms import functional as F
+    from torchvision.transforms import InterpolationMode
+
+    max_dim = 1024
+
+    def resize_to_max_dim(img):
+        """Downscale so the longest edge is at most `max_dim`, matching mask preprocessing."""
+        w, h = img.size
+        scale = max_dim / max(h, w)
+        if scale < 1.0:
+            new_h = int(round(h * scale))
+            new_w = int(round(w * scale))
+            return F.resize(img, (new_h, new_w), interpolation=InterpolationMode.BILINEAR)
+        return img
+
     model = ALIKED(max_num_keypoints=2048, detection_threshold=0.01)
-    preprocess = transforms.Compose([       
+    preprocess = transforms.Compose([
+        transforms.Lambda(resize_to_max_dim),
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),        
     ])
