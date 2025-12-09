@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import torch
 from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from pytorch_metric_learning.samplers import MPerClassSampler
 from pytorch_metric_learning import losses
 from pytorch_metric_learning.distances import CosineSimilarity
@@ -22,6 +22,7 @@ import wandb
 from image_transform import ZoomCenterCrop, ShufflePatches
 from evaluate import evaluate, embed
 from models import get_model, load_checkpoint, save_checkpoint
+from datasets import DataFrameDataset
 import config
 
 import warnings
@@ -35,26 +36,6 @@ if device.startswith("cuda"):
     torch.backends.cudnn.benchmark = True  # speed up convolutions when input sizes are fixed
 
 
-class DataFrameDataset(Dataset):
-    def __init__(self, df, transform):
-        self.paths = df['rel_path'].tolist() # bbox/2019-5/215/IMGP0147.jpg
-        try:
-            self.dates = df['date'].tolist() # 2019-5
-        except KeyError:
-            self.dates = [p.split('/')[1] for p in self.paths]  # extract date from path
-            #self.dates = [i for i, _ in enumerate(self.paths)]  # use index as date - different "date" per image
-        self.labels = df['label'].tolist() # labels are encoded from ind (215 in path above) 
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, idx):
-        img_path = self.paths[idx]
-        img = Image.open(img_path).convert("RGB")
-        img = self.transform(img)
-        return img, self.labels[idx]
-    
 def get_train_transform(size=440):
     return transforms.Compose([
         transforms.RandomRotation(5), 

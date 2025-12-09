@@ -3,7 +3,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def get_model(model_name):
-    if model_name.startswith('MegaDescriptor'):
+    if model_name.lower() == 'aliked':
+        return get_aliked_model()
+    elif model_name.startswith('MegaDescriptor'):
         return get_mega_model(model_name)
     elif model_name == 'miewid-msv3':
         return get_miewid_model()
@@ -13,13 +15,26 @@ def get_model(model_name):
         return get_sift_model()
     else:
         raise ValueError("No model specified or model not recognized.")
+    
+
+def get_aliked_model():
+    from lightglue import ALIKED
+    from torchvision import transforms
+    model = ALIKED(max_num_keypoints=2048, detection_threshold=0.01)
+    preprocess = transforms.Compose([       
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),        
+    ])
+    model = model.eval()
+    model.__call__ = model.extract
+    return model, preprocess, 'aliked'
+
 
 def get_sift_model():
     from sift import SimpleSIFT
     from torchvision import transforms
     model = SimpleSIFT()
-    preprocess = transforms.Compose([
-        transforms.Resize((440, 440)),
+    preprocess = transforms.Compose([        transforms.Resize((440, 440)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
@@ -30,6 +45,7 @@ def get_efficientnet_model():
     model = timm.create_model('efficientnetv2_rw_m.agc_in1k', pretrained=True, num_classes=0) # num_classes=0 for feature extraction
     data_config = timm.data.resolve_model_data_config(model)
     preprocess = timm.data.create_transform(**data_config, is_training=False)
+    model = model.eval()
     return model, preprocess, 'efficientnetv2'
 
 def get_mega_model(mega_model_name):

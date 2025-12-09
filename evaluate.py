@@ -12,6 +12,9 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 
 from image_transform import ZoomCenterCrop
 from models import get_model, load_checkpoint
+from similarities import get_similarity_function
+from datasets import DataFrameDataset
+
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -189,19 +192,21 @@ def evaluate(similarity_matrix, dataset):
 
 @click.command()
 @click.argument('model_name', type=str)
+@click.option('--similarity_name', type=str, default='cosine', help='Similarity function to use')
 @click.option('--val_csv', type=str, default='bina_photos_validation.csv')
 @click.option('--checkpoint', type=str, default=None, help='Path to the model checkpoint')
 @click.option('--device', type=str, default='cpu', help='Device to run the model on (e.g., cpu, cuda)')
-def main(model_name, val_csv, checkpoint, device):
+@click.option('--zoomcentercrop', type=bool, default=False, help='Should we apply ZoomCenterCrop before embedding?')
+def main(model_name, similarity_name, val_csv, checkpoint, device, zoomcentercrop):
     print(f"Evaluating {model_name} on {val_csv}...")
     
     model, preprocess, model_name = get_model(model_name)
+    similarity_func = get_similarity_function(similarity_name)
 
-    val_df = pd.read_csv(val_csv)
-    from train import DataFrameDataset
-    val_transforms = preprocess
-    val_transforms.transforms.insert(0, ZoomCenterCrop(zoom=2.0))
-    val_dataset = DataFrameDataset(val_df, transform=val_transforms)
+    df = pd.read_csv(val_csv) 
+    if zoomcentercrop:   
+        preprocess.transforms.insert(0, ZoomCenterCrop(zoom=2.0))
+    ds = DataFrameDataset(df, transform=preprocess)
 
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
@@ -213,7 +218,7 @@ def main(model_name, val_csv, checkpoint, device):
         embeddings = np.load(cache_file)["embeddings"]
         print(f"Loaded embeddings from {cache_file}")
     else:
-        embeddings = embed(model, val_dataset, device)
+        embeddings = embed(model, ds, device)
         np.savez_compressed(cache_file, embeddings=embeddings.to('cpu').numpy())
         print(f"Saved embeddings to {cache_file}")
     if device != 'cpu':
@@ -221,9 +226,8 @@ def main(model_name, val_csv, checkpoint, device):
     else:
         embeddings = torch.tensor(embeddings)
 
-    similarity_func = CosineSimilarity()
     similarity_matrix = similarity_func(embeddings, embeddings)
-    metrics = evaluate(similarity_matrix, val_dataset)
+    metrics = evaluate(similarity_matrix, ds)
 
     print(f"{model_name} | {val_csv}:")
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
