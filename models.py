@@ -26,7 +26,12 @@ def get_aliked_model():
         transforms.ToTensor(),        
     ])
     model = model.eval()
-    model.__call__ = model.extract
+    def call(tensor):
+        if tensor.ndim == 4:
+            assert tensor.shape[0] == 1, "ALIKED model only supports batch size of 1"
+            tensor = tensor.squeeze(0)
+        return model.extract(tensor)
+    model._call_impl = call
     return model, preprocess, 'aliked'
 
 
