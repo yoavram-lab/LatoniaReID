@@ -81,8 +81,8 @@ def plot_matches(img1, img2, kpts0, kpts1, matches):
 def main():
     # 1. Load Models
     print("Loading Models...")
-    sam = sam_model_registry["vit_b"](checkpoint=SAM_CHECKPOINT).to(DEVICE)
-    sam_predictor = SamPredictor(sam)
+    # sam = sam_model_registry["vit_b"](checkpoint=SAM_CHECKPOINT).to(DEVICE)
+    # sam_predictor = SamPredictor(sam)
     
     # ALIKED + LightGlue
     extractor = ALIKED(max_num_keypoints=2048, detection_threshold=0.01).eval().to(DEVICE)
@@ -102,9 +102,11 @@ def main():
     img2_raw = resize_image(img2_raw)
 
     # 3. Segment (Get Masks)
-    print("Segmenting...")
-    mask1, img1_masked = get_masked_input(sam_predictor, img1_raw)
-    mask2, img2_masked = get_masked_input(sam_predictor, img2_raw)
+    # print("Segmenting...")
+    # mask1, img1_masked = get_masked_input(sam_predictor, img1_raw)
+    img1_masked = img1_raw
+    # mask2, img2_masked = get_masked_input(sam_predictor, img2_raw)
+    img2_masked = img2_raw
 
     # 4. Extract & Match
     print("Matching...")
@@ -135,13 +137,15 @@ def main():
         return cv2.addWeighted(img, 0.7, overlay, 0.3, 0)
 
     plt.subplot(2, 2, 1)
-    plt.imshow(cv2.cvtColor(overlay(img1_raw, mask1), cv2.COLOR_BGR2RGB))
-    plt.title("Image A Segmentation Check")
+    # plt.imshow(cv2.cvtColor(overlay(img1_raw, mask1), cv2.COLOR_BGR2RGB))
+    plt.imshow(cv2.cvtColor(img1_raw, cv2.COLOR_BGR2RGB))
+    plt.title(f"Segmentation Check {IMAGE_A_PATH}")
     plt.axis('off')
 
     plt.subplot(2, 2, 2)
-    plt.imshow(cv2.cvtColor(overlay(img2_raw, mask2), cv2.COLOR_BGR2RGB))
-    plt.title("Image B Segmentation Check")
+    # plt.imshow(cv2.cvtColor(overlay(img2_raw, mask2), cv2.COLOR_BGR2RGB))
+    plt.imshow(cv2.cvtColor(img2_raw, cv2.COLOR_BGR2RGB))
+    plt.title(f"Segmentation Check {IMAGE_B_PATH}")
     plt.axis('off')
 
     # Row 2: The Matches
