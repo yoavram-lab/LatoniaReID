@@ -22,6 +22,10 @@ class LightGlueSimilarity():
         model = LightGlue(features=features)
         self.model = model.eval()
 
+    def to(self, device):
+        self.model = self.model.to(device)
+        return self
+
     def __call__(self, query_emb, ref_emb):
         n, m = len(query_emb), len(ref_emb)
         M = np.zeros((n, m), dtype=np.int32)
