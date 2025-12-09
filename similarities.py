@@ -3,13 +3,13 @@ import numpy as np
 
 
 def get_similarity_function(similarity_name):
-    if similarity_name == 'cosine':
+    if similarity_name.lower() == 'cosine':
         try:
             from pytorch_metric_learning.distances import CosineSimilarity
         except ImportError:
             from torchmetrics import CosineSimilarity
         return CosineSimilarity()
-    elif similarity_name == 'lightglue':        
+    elif similarity_name.lower() == 'lightglue':        
         return LightGlueSimilarity()
     else:
         raise ValueError(f"Unknown similarity function: {similarity_name}")
@@ -23,7 +23,8 @@ class LightGlueSimilarity():
         self.model = model.eval()
 
     def __call__(self, query_emb, ref_emb):
-        M = np.zeros((n, n), dtype=np.int32)
+        n, m = len(query_emb), len(ref_emb)
+        M = np.zeros((n, m), dtype=np.int32)
         for i, q in enumerate(query_emb):
             for j, r in enumerate(ref_emb):
                 with torch.inference_mode():
