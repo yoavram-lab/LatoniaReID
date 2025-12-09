@@ -18,8 +18,9 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 def embed(model, dataset, device: torch.device, batch_size, num_workers):
-    model.eval()
     model = model.to(device)
+    model.eval()
+    
     embeddings = []
     dataloader = DataLoader(
         dataset,
