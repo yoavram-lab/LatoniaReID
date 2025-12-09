@@ -17,7 +17,7 @@ from datasets import DataFrameDataset
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-def embed(model, dataset, device: torch.device, batch_size=32, num_workers=4):
+def embed(model, dataset, device: torch.device, batch_size, num_workers):
     model.eval()
     model = model.to(device)
     embeddings = []
@@ -42,9 +42,24 @@ def embed(model, dataset, device: torch.device, batch_size=32, num_workers=4):
                     emb = model(data)
             else:
                 emb = model(data)
+            if isinstance(emb, dict):
+                emb = {k: (v.detach() if torch.is_tensor(v) else v) for k, v in emb.items()}
+            elif torch.is_tensor(emb):
+                emb = emb.detach()
             embeddings.append(emb)
-    embeddings = torch.cat(embeddings, dim=0)
+    if embeddings and torch.is_tensor(embeddings[0]):
+        return torch.cat(embeddings, dim=0)
     return embeddings
+
+
+def move_to_device(obj, device: torch.device):
+    if torch.is_tensor(obj):
+        return obj.to(device)
+    if isinstance(obj, dict):
+        return {k: move_to_device(v, device) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [move_to_device(v, device) for v in obj]
+    return obj
 
 
 def labels_and_scores(similarity_matrix, query_labels, ref_labels, query_dates, ref_dates):
@@ -189,18 +204,25 @@ def evaluate(similarity_matrix, dataset):
 
 @click.command()
 @click.argument('model_name', type=str)
-@click.option('--similarity_name', type=str, default='cosine', help='Similarity function to use')
 @click.option('--val_csv', type=str, default='bina_photos_validation.csv')
 @click.option('--checkpoint', type=str, default=None, help='Path to the model checkpoint')
 @click.option('--device', type=str, default='cpu', help='Device to run the model on (e.g., cpu, cuda)')
-@click.option('--zoomcentercrop', type=bool, default=False, help='Should we apply ZoomCenterCrop before embedding?')
-def main(model_name, similarity_name, val_csv, checkpoint, device, zoomcentercrop):
-    print(f"Evaluating {model_name} on {val_csv}...")
-    
-    torch_device = torch.device(device)
+@click.option('--batch_size', type=int, default=32, help='Batch size for embedding')
+@click.option('--num_workers', type=int, default=4, help='Number of DataLoader workers')
+def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):    
+    device = torch.device(device)
     model, preprocess, model_name = get_model(model_name)
-    similarity_func = get_similarity_function(similarity_name)
-
+    if model_name.lower() == 'aliked':
+        batch_size = 1  # ALIKED requires batch size of 1 due to variable number of keypoints
+        num_workers = 0  # Disable multiprocessing for ALIKED to avoid issues
+        similarity_name = 'lightglue'
+        zoomcentercrop = False
+    else:
+        similarity_name = 'cosine'
+        zoomcentercrop = True
+    similarity = get_similarity_function(similarity_name)
+    print(f"Evaluating {model_name}-{similarity_name} on {val_csv} with device {device}...")
+    
     df = pd.read_csv(val_csv) 
     if zoomcentercrop:   
         preprocess.transforms.insert(0, ZoomCenterCrop(zoom=2.0))
@@ -208,33 +230,39 @@ def main(model_name, similarity_name, val_csv, checkpoint, device, zoomcentercro
 
     if checkpoint is not None:
         print(f"Loading checkpoint from {checkpoint}...")
-        load_checkpoint(checkpoint, model, map_location=torch_device)
+        load_checkpoint(checkpoint, model, map_location=device)
         model_name = checkpoint.split('/')[1]
 
     results_dir = Path("results")
     results_dir.mkdir(exist_ok=True)
     suffix = f"{model_name}_{Path(val_csv).stem}"
-    if zoomcentercrop:
-        suffix += "_zoom"
 
     emb_cache = results_dir / f"{suffix}_embeddings.pt"
     if emb_cache.exists():
-        embeddings = torch.load(emb_cache, map_location=torch_device)
+        embeddings = torch.load(emb_cache, map_location=device)
         print(f"Loaded embeddings from {emb_cache}")
     else:
-        embeddings = embed(model, ds, torch_device)
-        embeddings_cpu = embeddings.cpu()
-        torch.save(embeddings_cpu, emb_cache)
+        embeddings = embed(model, ds, device, batch_size=batch_size, num_workers=num_workers)
+        if torch.is_tensor(embeddings):
+            torch.save(embeddings.cpu(), emb_cache)
+            embeddings = embeddings.to(device)
+        else:
+            torch.save(move_to_device(embeddings, torch.device("cpu")), emb_cache)
+            embeddings = move_to_device(embeddings, device)
         print(f"Saved embeddings to {emb_cache}")
-        embeddings = embeddings.to(torch_device)
 
     sim_cache = results_dir / f"{suffix}_{similarity_name}_similarity.pt"
     if sim_cache.exists():
         similarity_matrix = torch.load(sim_cache, map_location="cpu")
         print(f"Loaded similarity matrix from {sim_cache}")
     else:
-        embeddings_for_sim = embeddings if embeddings.device == torch_device else embeddings.to(torch_device)
-        similarity_matrix = similarity_func(embeddings_for_sim, embeddings_for_sim).cpu()
+        if torch.is_tensor(embeddings):
+            embeddings_for_sim = embeddings if embeddings.device == device else embeddings.to(device)
+            similarity_matrix = similarity(embeddings_for_sim, embeddings_for_sim).cpu()
+        else:
+            embeddings_for_sim = move_to_device(embeddings, device)
+            similarity_matrix = similarity(embeddings_for_sim, embeddings_for_sim)
+            similarity_matrix = torch.as_tensor(similarity_matrix).cpu()
         torch.save(similarity_matrix, sim_cache)
         print(f"Saved similarity matrix to {sim_cache}")
 
@@ -243,6 +271,7 @@ def main(model_name, similarity_name, val_csv, checkpoint, device, zoomcentercro
     print(f"{model_name} | {val_csv}:")
     print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
     print("{}".format(" ".join([f"{v:<15.3f}" for v in metrics.values()])), flush=True)
+
 
 if __name__ == "__main__":
     main()
