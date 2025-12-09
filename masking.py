@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Iterable
 
 import click
-import cv2
 import numpy as np
 import torch
+from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
@@ -29,14 +29,16 @@ def collect_images(root: Path, extensions: Iterable[str]) -> list[Path]:
     return sorted([p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in ext_set])
 
 
-def save_mask(save_path: Path, mask: np.ndarray) -> None:
+def apply_mask(image_rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    mask_bool = mask.astype(bool)
+    masked = np.zeros_like(image_rgb)
+    masked[mask_bool] = image_rgb[mask_bool]
+    return masked
+
+
+def save_masked_image(save_path: Path, masked_image: np.ndarray) -> None:
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    mask_uint8 = (mask * 255).astype(np.uint8)
-    success, buffer = cv2.imencode(".png", mask_uint8)
-    if success:
-        save_path.write_bytes(buffer)
-    else:
-        click.echo(f"Warning: failed to encode mask for {save_path}", err=True)
+    Image.fromarray(masked_image).save(save_path, format="PNG")
 
 
 def process_folder(
@@ -61,16 +63,18 @@ def process_folder(
                     progress.update(1)
                     continue
 
-                image = cv2.imdecode(np.fromfile(str(img_path), dtype=np.uint8), cv2.IMREAD_COLOR)
-                if image is None:
-                    click.echo(f"Warning: could not read {img_path}", err=True)
+                try:
+                    with img_path.open("rb") as f:
+                        image = Image.open(f).convert("RGB")
+                except Exception as exc:  # Pillow can throw many error types
+                    click.echo(f"Warning: could not read {img_path}: {exc}", err=True)
                     progress.update(1)
                     continue
 
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                image_rgb = np.array(image)
                 predictor.set_image(image_rgb)
 
-                h, w = image.shape[:2]
+                h, w = image_rgb.shape[:2]
                 input_point = np.array([[w // 2, h // 2]])
                 input_label = np.array([1])
 
@@ -80,10 +84,11 @@ def process_folder(
                     multimask_output=True,
                 )
                 selected_mask = masks[0]
-                save_mask(save_path, selected_mask)
+                masked_image = apply_mask(image_rgb, selected_mask)
+                save_masked_image(save_path, masked_image)
                 progress.update(1)
 
-    click.echo(f"Done. Masks saved to {mask_root}")
+    click.echo(f"Done. Masked images saved to {mask_root}")
 
 
 @click.command()
