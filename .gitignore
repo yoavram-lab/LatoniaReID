@@ -192,3 +192,18 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+exports/
+checkpoints/
+glue_cache/
+lightglue_errors/
+*.png
+*.jpg
+yolov5/
+results/
+*.zip
+.DS_Store
+.vscode/
+labeler_amphibian_effnet.v4/
+*.pt
+*.pth
