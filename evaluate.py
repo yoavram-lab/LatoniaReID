@@ -91,7 +91,7 @@ def evaluate(similarity_matrix, dataset):
             dataset.labels,
             dataset.dates,
             dataset.dates,
-            k=3,
+            k=1,
         ),
         "Top-3 ID accuracy": top_k_id_accuracy(
             similarity_matrix,
