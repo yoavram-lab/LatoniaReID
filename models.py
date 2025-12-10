@@ -1,3 +1,6 @@
+import torch
+from torchvision import transforms
+
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -5,40 +8,21 @@ warnings.filterwarnings("ignore", category=UserWarning)
 def get_model(model_name):
     if model_name.lower() == 'aliked':
         return get_aliked_model()
-    elif model_name.startswith('MegaDescriptor'):
+    elif model_name.lower().startswith('megadescriptor'):
         return get_mega_model(model_name)
-    elif model_name == 'miewid-msv3':
+    elif model_name.lower() == 'miewid-msv3':
         return get_miewid_model()
-    elif model_name == 'efficientnetv2':
+    elif model_name.lower() == 'efficientnetv2':
         return get_efficientnet_model()
-    elif model_name == 'sift':
-        return get_sift_model()
     else:
         raise ValueError("No model specified or model not recognized.")
     
 
 def get_aliked_model():
     from lightglue import ALIKED
-    from torchvision import transforms
-    from torchvision.transforms import functional as F
-    from torchvision.transforms import InterpolationMode
 
-    max_dim = 1024
-
-    def resize_to_max_dim(img):
-        """Downscale so the longest edge is at most `max_dim`, matching mask preprocessing."""
-        w, h = img.size
-        scale = max_dim / max(h, w)
-        if scale < 1.0:
-            new_h = int(round(h * scale))
-            new_w = int(round(w * scale))
-            return F.resize(img, (new_h, new_w), interpolation=InterpolationMode.BILINEAR)
-        return img
-
-    model = ALIKED(max_num_keypoints=2048, detection_threshold=0.01)
+    model = ALIKED(max_num_keypoints=1432, detection_threshold=0.01)
     preprocess = transforms.Compose([
-        transforms.Lambda(resize_to_max_dim),
-        transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),        
     ])
     model = model.eval()
@@ -51,16 +35,6 @@ def get_aliked_model():
     return model, preprocess, 'aliked'
 
 
-def get_sift_model():
-    from sift import SimpleSIFT
-    from torchvision import transforms
-    model = SimpleSIFT()
-    preprocess = transforms.Compose([        transforms.Resize((440, 440)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-    ])
-    return model, preprocess, 'sift'
-
 def get_efficientnet_model():
     import timm
     model = timm.create_model('efficientnetv2_rw_m.agc_in1k', pretrained=True, num_classes=0) # num_classes=0 for feature extraction
@@ -70,7 +44,6 @@ def get_efficientnet_model():
     return model, preprocess, 'efficientnetv2'
 
 def get_mega_model(mega_model_name):
-    from torchvision import transforms
     if mega_model_name.startswith('MegaDescriptor'):
         import timm
         model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=True)
@@ -85,7 +58,6 @@ def get_mega_model(mega_model_name):
         ])
     elif mega_model_name == 'MegaDescriptor-EfficientNetB3':
         from huggingface_hub import hf_hub_download
-        import torch
         ckpt = hf_hub_download(f"BVRA/{mega_model_name}", "pytorch_model.bin")
         state = torch.load(ckpt, map_location="cpu", weights_only=False)
         if isinstance(state, dict) and 'model' in state:
@@ -104,7 +76,6 @@ def get_mega_model(mega_model_name):
     return model, preprocess, mega_model_name
 
 def get_miewid_model():
-    from torchvision import transforms
     from transformers import AutoModel
     model = AutoModel.from_pretrained('conservationxlabs/miewid-msv3', trust_remote_code=True)
     model = model.eval()
@@ -119,7 +90,6 @@ def get_miewid_model():
     return model, preprocess, "miewid-msv3"
 
 def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, scheduler, loss_scheduler, epoch):
-    import torch
     model = model.module if isinstance(model, torch.nn.DataParallel) else model
     state = {
         'model': model.state_dict(), 
@@ -133,7 +103,6 @@ def save_checkpoint(ckpt_path, model, loss_func, optimizer, loss_optimizer, sche
     torch.save(state, ckpt_path)
 
 def load_checkpoint(checkpoint_path, model, loss_func=None, optimizer=None, loss_optimizer=None, scheduler=None, loss_scheduler=None, map_location=None):
-    import torch
     checkpoint = torch.load(checkpoint_path, map_location=map_location)
     model.load_state_dict(checkpoint['model'])
     if loss_func is not None:
