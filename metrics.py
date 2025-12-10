@@ -154,7 +154,10 @@ def top_k_id_accuracy(similarity_matrix, query_labels, ref_labels, query_dates, 
     """
     n = len(query_labels)
     m = len(ref_labels)
-    assert similarity_matrix.shape == (n, m,), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
+    assert similarity_matrix.shape == (
+        n,
+        m,
+    ), f"Shape mismatch: {similarity_matrix.shape} != ({n}, {m})"
     correct = 0
     total = 0
 
@@ -175,6 +178,15 @@ def top_k_id_accuracy(similarity_matrix, query_labels, ref_labels, query_dates, 
                 unique_ids.append(candidate_id)
                 if len(unique_ids) == k:
                     break
+
+        # Check if there are any valid same-ID different-date candidates
+        has_valid_match = any(
+            query_labels[i] == ref_labels[j]
+            for j in sorted_idx
+            if query_dates[i] != ref_dates[j]
+        )
+        if not has_valid_match:  # skip if no valid different-date matches exist
+            continue
 
         total += 1
         # Check if the query ID is in the top-k unique IDs
