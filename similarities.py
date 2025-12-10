@@ -21,6 +21,7 @@ class LightGlueSimilarity():
         self.rbd = rbd
         model = LightGlue(features=features)
         self.model = model.eval()
+        self.model.compile(mode='reduce-overhead') #
 
     def to(self, device):
         self.model = self.model.to(device)
