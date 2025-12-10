@@ -79,28 +79,33 @@ def evaluate(similarity_matrix, dataset):
         dataset.dates, dataset.dates
     )
     return {
-        "AUC": roc_auc_score(
-            labels.cpu(), 
-            scores.cpu()),
-        "AP": average_precision_score(
-            labels.cpu(), 
-            scores.cpu()),
+        # "AUC": roc_auc_score(
+        #     labels.cpu(), 
+        #     scores.cpu()),
+        # "AP": average_precision_score(
+        #     labels.cpu(), 
+        #     scores.cpu()),
         "Top-1 ID accuracy": top_k_id_accuracy(
             similarity_matrix,
             dataset.labels,
             dataset.labels,
             dataset.dates,
             dataset.dates,
-            k=1,
-        ),
+            k=1),
         "Top-3 ID accuracy": top_k_id_accuracy(
             similarity_matrix,
             dataset.labels,
             dataset.labels,
             dataset.dates,
             dataset.dates,
-            k=3,
-        ),
+            k=3),
+        "Top-10 ID accuracy": top_k_id_accuracy(
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=10),
         "Top-1 accuracy": top_k_accuracy(
             similarity_matrix, 
             dataset.labels, 
@@ -115,30 +120,44 @@ def evaluate(similarity_matrix, dataset):
             dataset.dates, 
             dataset.dates, 
             k=3),
-        "Precision@3": precision_at_k(
+        "Top-50 accuracy": top_k_accuracy(
             similarity_matrix, 
             dataset.labels, 
             dataset.labels, 
             dataset.dates, 
-            dataset.dates, k=3),
-        "Recall@3": recall_at_k(
+            dataset.dates, 
+            k=50),
+        "Top-100 accuracy": top_k_accuracy(
             similarity_matrix, 
             dataset.labels, 
             dataset.labels, 
             dataset.dates, 
-            dataset.dates, k=3),
-        "R-Precision": R_precision(
-            similarity_matrix, 
-            dataset.labels, 
-            dataset.labels, 
             dataset.dates, 
-            dataset.dates),
-        "mAP@R": mean_average_precision_at_R(
-            similarity_matrix, 
-            dataset.labels, 
-            dataset.labels, 
-            dataset.dates, 
-            dataset.dates)
+            k=100),
+        # "Precision@3": precision_at_k(
+        #     similarity_matrix, 
+        #     dataset.labels, 
+        #     dataset.labels, 
+        #     dataset.dates, 
+        #     dataset.dates, k=3),
+        # "Recall@3": recall_at_k(
+        #     similarity_matrix, 
+        #     dataset.labels, 
+        #     dataset.labels, 
+        #     dataset.dates, 
+        #     dataset.dates, k=3),
+        # "R-Precision": R_precision(
+        #     similarity_matrix, 
+        #     dataset.labels, 
+        #     dataset.labels, 
+        #     dataset.dates, 
+        #     dataset.dates),
+        # "mAP@R": mean_average_precision_at_R(
+        #     similarity_matrix, 
+        #     dataset.labels, 
+        #     dataset.labels, 
+        #     dataset.dates, 
+        #     dataset.dates)
     }
 
 
