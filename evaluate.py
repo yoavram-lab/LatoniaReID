@@ -25,6 +25,7 @@ from metrics import (
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+
 def embed(model, dataset, device: torch.device, batch_size, num_workers):
     model = model.to(device)
     model.eval()
@@ -140,6 +141,7 @@ def evaluate(similarity_matrix, dataset):
             dataset.dates)
     }
 
+
 @click.command()
 @click.argument('model_name', type=str)
 @click.option('--val_csv', type=str, default='bina_photos_validation.csv')
@@ -200,8 +202,8 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
     metrics = evaluate(similarity_matrix, ds)
 
     print(f"{model_name} | {val_csv}:")
-    print("{}".format(" ".join([f"{k:<15}" for k in metrics.keys()])))
-    print("{}".format(" ".join([f"{v:<15.3f}" for v in metrics.values()])), flush=True)
+    print("{}".format(" ".join([f"{k:<18}" for k in metrics.keys()])))
+    print("{}".format(" ".join([f"{v:<18.3f}" for v in metrics.values()])), flush=True)
 
 
 if __name__ == "__main__":
