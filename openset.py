@@ -1,10 +1,10 @@
 from pathlib import Path
 
 import click
-import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
+import numpy as np
 from sklearn.metrics import precision_recall_curve
 
 
@@ -114,10 +114,15 @@ def plot_histograms(same, different, out_path: Path, x_lines=None):
     print(f"Saved histogram to {out_path}")
 
 
-def plot_precision_recall(labels, scores, out_path: Path):
+def plot_precision_recall(labels, scores, out_path: Path, highlights=None):
     precision, recall, _ = precision_recall_curve(labels, scores)
     plt.figure(figsize=(6, 5))
     plt.plot(recall, precision, label="PR curve")
+    if highlights:
+        for r, p in highlights.items():
+            if p is None:
+                continue
+            plt.scatter(r, p, s=40, label=f"recall {r:.2f}")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.title("Precision-Recall Curve")
@@ -125,6 +130,26 @@ def plot_precision_recall(labels, scores, out_path: Path):
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
     print(f"Saved precision-recall curve to {out_path}")
+
+
+def precision_at_recalls(precision, recall, targets):
+    """Return precision values at or above target recalls (using max precision where recall>=target)."""
+    results = {}
+    for r_target in targets:
+        mask = recall >= r_target
+        if np.any(mask):
+            results[r_target] = float(np.max(precision[mask]))
+        else:
+            results[r_target] = None
+    return results
+
+
+def recall_at_precision(precision, recall, target_precision):
+    """Return max recall achievable at or above a target precision."""
+    mask = precision >= target_precision
+    if np.any(mask):
+        return float(np.max(recall[mask]))
+    return None
 
 
 @click.command(help="Plot similarity histograms for same-ID/different-ID pairs across dates.")
@@ -188,18 +213,8 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
         except ValueError as exc:
             raise SystemExit(f"Could not parse --x values '{x_lines_raw}': {exc}")
 
-    # Compute threshold so that 99% of different-ID scores fall below it
+    # Compute threshold so that 99% of different-ID scores fall below it (still used for plot)
     threshold = float(np.quantile(different, 0.99)) if different else None
-    if threshold is not None:
-        above_pct = (
-            100.0 * sum(s >= threshold for s in same) / len(same)
-            if same
-            else 0.0
-        )
-        print(f"99th percentile threshold of diff-id: {threshold:.3f}")
-        print(f"Fraction of same-id above threshold: {above_pct:.2f}%")
-
-    # Append threshold to x_lines for plotting
     if threshold is not None:
         x_lines = (x_lines or []) + [threshold]
 
@@ -208,11 +223,23 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
     # Precision-Recall curve
     labels = np.concatenate([np.ones(len(same)), np.zeros(len(different))])
     scores = np.concatenate([np.array(same), np.array(different)])
-    plot_precision_recall(labels, scores, pr_out_path)
+    precision, recall, _ = precision_recall_curve(labels, scores)
+    highlights = precision_at_recalls(precision, recall, targets=[0.95])
+    prec_target = 0.95
+    rec_at_prec = recall_at_precision(precision, recall, prec_target)
+    if rec_at_prec is not None:
+        highlights[rec_at_prec] = prec_target  # for plotting, keyed by recall value
+    plot_precision_recall(labels, scores, pr_out_path, highlights=highlights)
 
-    # Report top-1 ID accuracy using identity-level aggregation (matches top_k_id_accuracy logic)
-    top1 = top1_id_accuracy_from_scores(sim, dates, ids)
-    print(f"Top-1 ID accuracy (identity-level aggregation): {top1:.3f}")
+    for r_target, p_val in precision_at_recalls(precision, recall, targets=[0.95]).items():
+        if p_val is None:
+            print(f"Recall {r_target:.2f}: not achievable")
+        else:
+            print(f"Recall {r_target:.2f} -> Precision {p_val:.3f}")
+    if rec_at_prec is None:
+        print(f"Precision {prec_target:.2f}: not achievable")
+    else:
+        print(f"Precision {prec_target:.2f} -> Recall {rec_at_prec:.3f}")
 
 
 if __name__ == "__main__":
