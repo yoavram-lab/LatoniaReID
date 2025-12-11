@@ -34,6 +34,64 @@ def collect_pairs(similarity, dates, ids):
     return same_id_diff_date, diff_id_diff_date
 
 
+def collect_id_level_scores(similarity, dates, ids):
+    """Aggregate scores at identity level (max over images per identity, excluding same-date)."""
+    sim = np.asarray(similarity)
+    id_to_indices = {}
+    for idx, fid in enumerate(ids):
+        id_to_indices.setdefault(fid, []).append(idx)
+
+    pos_scores = []  # same ID, different date (max over that ID's valid images)
+    neg_scores = []  # different ID, different date (max over each other ID's valid images)
+
+    for i, (fid, date) in enumerate(zip(ids, dates)):
+        # positives: same ID, different date
+        same_idxs = [j for j in id_to_indices[fid] if dates[j] != date]
+        if not same_idxs:
+            continue  # no cross-date mate for this query
+        pos_scores.append(float(sim[i, same_idxs].max()))
+
+        # negatives: other IDs, take max score per ID (excluding same-date)
+        for other_id, idxs in id_to_indices.items():
+            if other_id == fid:
+                continue
+            valid = [j for j in idxs if dates[j] != date]
+            if not valid:
+                continue
+            neg_scores.append(float(sim[i, valid].max()))
+
+    return pos_scores, neg_scores
+
+
+def top1_id_accuracy_from_scores(similarity, dates, ids):
+    """Compute top-1 ID accuracy using identity-level aggregation (matches top_k_id_accuracy logic)."""
+    sim = np.asarray(similarity)
+    id_to_indices = {}
+    for idx, fid in enumerate(ids):
+        id_to_indices.setdefault(fid, []).append(idx)
+
+    correct = 0
+    total = 0
+    for i, (fid, date) in enumerate(zip(ids, dates)):
+        # Build per-ID max scores excluding same-date pairs
+        id_scores = {}
+        for other_id, idxs in id_to_indices.items():
+            valid = [j for j in idxs if dates[j] != date]
+            if not valid:
+                continue
+            id_scores[other_id] = float(sim[i, valid].max())
+
+        if fid not in id_scores:
+            continue  # no cross-date positive for this query
+
+        total += 1
+        pred_id = max(id_scores.items(), key=lambda x: x[1])[0]
+        if pred_id == fid:
+            correct += 1
+
+    return correct / total if total else 0.0
+
+
 def plot_histograms(same, different, out_path: Path, x_lines=None):
     plt.figure(figsize=(8, 5))
     bins = 50
@@ -115,8 +173,9 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
     rel_paths = df["rel_path"].tolist()
     dates, ids = zip(*(parse_date_id(p) for p in rel_paths))
 
-    same, different = collect_pairs(sim, dates, ids)
-    print(f"Collected {len(same)} same-id/different-date pairs and {len(different)} different-id/different-date pairs")
+    # Identity-level aggregation: max score per identity (excluding same-date pairs).
+    same, different = collect_id_level_scores(sim, dates, ids)
+    print(f"[ID-level] Collected {len(same)} same-id/different-date scores and {len(different)} different-id/different-date scores")
     x_lines = None
     if x_lines_raw:
         try:
@@ -150,6 +209,10 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
     labels = np.concatenate([np.ones(len(same)), np.zeros(len(different))])
     scores = np.concatenate([np.array(same), np.array(different)])
     plot_precision_recall(labels, scores, pr_out_path)
+
+    # Report top-1 ID accuracy using identity-level aggregation (matches top_k_id_accuracy logic)
+    top1 = top1_id_accuracy_from_scores(sim, dates, ids)
+    print(f"Top-1 ID accuracy (identity-level aggregation): {top1:.3f}")
 
 
 if __name__ == "__main__":
