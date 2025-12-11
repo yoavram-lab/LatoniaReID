@@ -1,0 +1,156 @@
+from pathlib import Path
+
+import click
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import torch
+from sklearn.metrics import precision_recall_curve
+
+
+def parse_date_id(rel_path: str) -> tuple[str, str]:
+    """Extract date and id from a path like <data>/<date>/<id>/<image>."""
+    parts = Path(rel_path).parts
+    if len(parts) < 3:
+        raise ValueError(f"Expected path format <data>/<date>/<id>/<image>, got: {rel_path}")
+    date = parts[-3]
+    frog_id = parts[-2]
+    return date, frog_id
+
+
+def collect_pairs(similarity, dates, ids):
+    same_id_diff_date = []
+    diff_id_diff_date = []
+    n = len(dates)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if dates[i] == dates[j]:
+                continue  # skip same-date comparisons
+            sim = float(similarity[i, j])
+            if ids[i] == ids[j]:
+                same_id_diff_date.append(sim)
+            else:
+                diff_id_diff_date.append(sim)
+    return same_id_diff_date, diff_id_diff_date
+
+
+def plot_histograms(same, different, out_path: Path, x_lines=None):
+    plt.figure(figsize=(8, 5))
+    bins = 50
+    plt.hist(
+        different,
+        bins=bins,
+        alpha=0.6,
+        label="Different ID, different date",
+        density=True,
+    )
+    plt.hist(same, bins=bins, alpha=0.6, label="Same ID, different date", density=True)
+    if x_lines:
+        for x in x_lines:
+            plt.axvline(x, color="k", linestyle="--", linewidth=1, alpha=0.7)
+    plt.xlabel("Similarity score")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    print(f"Saved histogram to {out_path}")
+
+
+def plot_precision_recall(labels, scores, out_path: Path):
+    precision, recall, _ = precision_recall_curve(labels, scores)
+    plt.figure(figsize=(6, 5))
+    plt.plot(recall, precision, label="PR curve")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Precision-Recall Curve")
+    plt.grid(True, linestyle="--", alpha=0.4)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    print(f"Saved precision-recall curve to {out_path}")
+
+
+@click.command(help="Plot similarity histograms for same-ID/different-ID pairs across dates.")
+@click.option(
+    "--sim-path",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("results/aliked_bina_photos_mask_lightglue_similarity.pt"),
+    show_default=True,
+    help="Path to the similarity matrix .pt file.",
+)
+@click.option(
+    "--csv-path",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("bina_photos_mask.csv"),
+    show_default=True,
+    help="Path to the CSV with rel_path and labels.",
+)
+@click.option(
+    "--out",
+    "out_path",
+    type=click.Path(path_type=Path),
+    default=Path("openset_hist.png"),
+    show_default=True,
+    help="Where to save the histogram figure.",
+)
+@click.option(
+    "--pr-out",
+    "pr_out_path",
+    type=click.Path(path_type=Path),
+    default=Path("openset_pr.png"),
+    show_default=True,
+    help="Where to save the precision-recall curve.",
+)
+@click.option(
+    "--x",
+    "x_lines_raw",
+    multiple=True,
+    help="Comma-separated x values for vertical lines, e.g. '--x 15,189,666' or repeated '--x 15 --x 189'.",
+)
+def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
+    sim = torch.load(sim_path, map_location="cpu")
+    if hasattr(sim, "numpy"):
+        sim = sim.numpy()
+
+    df = pd.read_csv(csv_path)
+    rel_paths = df["rel_path"].tolist()
+    dates, ids = zip(*(parse_date_id(p) for p in rel_paths))
+
+    same, different = collect_pairs(sim, dates, ids)
+    print(f"Collected {len(same)} same-id/different-date pairs and {len(different)} different-id/different-date pairs")
+    x_lines = None
+    if x_lines_raw:
+        try:
+            x_lines = [
+                float(v)
+                for chunk in x_lines_raw
+                for v in chunk.split(",")
+                if v.strip() != ""
+            ]
+        except ValueError as exc:
+            raise SystemExit(f"Could not parse --x values '{x_lines_raw}': {exc}")
+
+    # Compute threshold so that 99% of different-ID scores fall below it
+    threshold = float(np.quantile(different, 0.99)) if different else None
+    if threshold is not None:
+        above_pct = (
+            100.0 * sum(s >= threshold for s in same) / len(same)
+            if same
+            else 0.0
+        )
+        print(f"99th percentile threshold of diff-id: {threshold:.3f}")
+        print(f"Fraction of same-id above threshold: {above_pct:.2f}%")
+
+    # Append threshold to x_lines for plotting
+    if threshold is not None:
+        x_lines = (x_lines or []) + [threshold]
+
+    plot_histograms(same, different, out_path, x_lines=x_lines)
+
+    # Precision-Recall curve
+    labels = np.concatenate([np.ones(len(same)), np.zeros(len(different))])
+    scores = np.concatenate([np.array(same), np.array(different)])
+    plot_precision_recall(labels, scores, pr_out_path)
+
+
+if __name__ == "__main__":
+    main()
