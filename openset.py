@@ -212,11 +212,6 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
         except ValueError as exc:
             raise SystemExit(f"Could not parse --x values '{x_lines_raw}': {exc}")
 
-    # Compute threshold so that 99% of different-ID scores fall below it (still used for plot)
-    threshold = float(np.quantile(different, 0.99)) if different else None
-    if threshold is not None:
-        x_lines = (x_lines or []) + [threshold]
-
     plot_histograms(same, different, out_path, x_lines=x_lines)
 
     # Precision-Recall curve
