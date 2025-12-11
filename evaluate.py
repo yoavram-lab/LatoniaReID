@@ -172,7 +172,7 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
     device = torch.device(device)
     model, preprocess, model_name = get_model(model_name)
     
-    if model_name.lower() == 'aliked':
+    if model_name.lower() in ('aliked', 'sift'):
         batch_size = 1  # ALIKED requires batch size of 1 due to variable number of keypoints
         num_workers = 0  # Disable multiprocessing for ALIKED to avoid issues
         similarity_name = 'lightglue'
@@ -180,7 +180,10 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
     else:
         similarity_name = 'cosine'
         zoomcentercrop = True
-    similarity = get_similarity_function(similarity_name)
+    similarity = get_similarity_function(
+        similarity_name,
+        features=model_name.lower() if similarity_name == 'lightglue' else None
+    )
     similarity = similarity.to(device)
     print(f"Evaluating {model_name}-{similarity_name} on {val_csv} with device {device}...")
     

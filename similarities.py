@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 
-def get_similarity_function(similarity_name):
+def get_similarity_function(similarity_name, features=None):
     if similarity_name.lower() == 'cosine':
         try:
             from pytorch_metric_learning.distances import CosineSimilarity
@@ -10,7 +10,7 @@ def get_similarity_function(similarity_name):
             from torchmetrics import CosineSimilarity
         return CosineSimilarity()
     elif similarity_name.lower() == 'lightglue':        
-        return LightGlueSimilarity()
+        return LightGlueSimilarity(features=features or 'aliked')
     else:
         raise ValueError(f"Unknown similarity function: {similarity_name}")
 

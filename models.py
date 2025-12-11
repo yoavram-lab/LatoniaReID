@@ -8,6 +8,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 def get_model(model_name):
     if model_name.lower() == 'aliked':
         return get_aliked_model()
+    elif model_name.lower() == 'sift':
+        return get_sift_model()
     elif model_name.lower().startswith('megadescriptor'):
         return get_mega_model(model_name)
     elif model_name.lower() == 'miewid-msv3':
@@ -33,6 +35,39 @@ def get_aliked_model():
         return model.extract(tensor)
     model._call_impl = call
     return model, preprocess, 'aliked'
+
+def get_sift_model():
+    from lightglue import SIFT
+    from torchvision.transforms import functional as F
+    from torchvision.transforms import InterpolationMode
+
+    max_dim = 1024
+
+    def resize_to_max_dim(img):
+        """Downscale so the longest edge is at most `max_dim`."""
+        w, h = img.size
+        scale = max_dim / max(h, w)
+        if scale < 1.0:
+            new_h = int(round(h * scale))
+            new_w = int(round(w * scale))
+            return F.resize(img, (new_h, new_w), interpolation=InterpolationMode.BILINEAR)
+        return img
+
+    model = SIFT(max_num_keypoints=1432)
+    preprocess = transforms.Compose([
+        transforms.Lambda(resize_to_max_dim),
+        transforms.ToTensor(),
+    ])
+    model = model.eval()
+
+    def call(tensor):
+        if tensor.ndim == 4:
+            assert tensor.shape[0] == 1, "SIFT model only supports batch size of 1"
+            tensor = tensor.squeeze(0)
+        return model.extract(tensor)
+
+    model._call_impl = call
+    return model, preprocess, 'sift'
 
 
 def get_efficientnet_model():
