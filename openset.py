@@ -117,15 +117,14 @@ def plot_histograms(same, different, out_path: Path, x_lines=None):
 def plot_precision_recall(labels, scores, out_path: Path, highlights=None):
     precision, recall, _ = precision_recall_curve(labels, scores)
     plt.figure(figsize=(6.6, 4.4))
-    plt.plot(recall, precision, label="PR curve")
+    plt.plot(recall, precision)
     if highlights:
         for r, p in highlights.items():
             if p is None:
                 continue
-            plt.scatter(r, p, s=40, label=f"recall {r:.2f}", color="black")
+            plt.scatter(r, p, s=40, color="black")
     plt.xlabel("Recall", fontsize=13)
     plt.ylabel("Precision", fontsize=13)
-    plt.legend(fontsize=11)
     plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
