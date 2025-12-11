@@ -93,7 +93,7 @@ def top1_id_accuracy_from_scores(similarity, dates, ids):
 
 
 def plot_histograms(same, different, out_path: Path, x_lines=None):
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(6.6, 4.4))
     bins = 50
     plt.hist(
         different,
@@ -116,7 +116,7 @@ def plot_histograms(same, different, out_path: Path, x_lines=None):
 
 def plot_precision_recall(labels, scores, out_path: Path, highlights=None):
     precision, recall, _ = precision_recall_curve(labels, scores)
-    plt.figure(figsize=(6, 5))
+    plt.figure(figsize=(6.6, 4.4))
     plt.plot(recall, precision, label="PR curve")
     if highlights:
         for r, p in highlights.items():
