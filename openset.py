@@ -125,7 +125,6 @@ def plot_precision_recall(labels, scores, out_path: Path, highlights=None):
             plt.scatter(r, p, s=40, label=f"recall {r:.2f}")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve")
     plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
