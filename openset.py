@@ -122,7 +122,7 @@ def plot_precision_recall(labels, scores, out_path: Path, highlights=None):
         for r, p in highlights.items():
             if p is None:
                 continue
-            plt.scatter(r, p, s=40, label=f"recall {r:.2f}")
+            plt.scatter(r, p, s=40, label=f"recall {r:.2f}", color="black")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.grid(True, linestyle="--", alpha=0.4)
