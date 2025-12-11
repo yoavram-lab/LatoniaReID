@@ -106,9 +106,9 @@ def plot_histograms(same, different, out_path: Path, x_lines=None):
     if x_lines:
         for x in x_lines:
             plt.axvline(x, color="k", linestyle="--", linewidth=1, alpha=0.7)
-    plt.xlabel("Similarity score")
-    plt.ylabel("Density")
-    plt.legend()
+    plt.xlabel("Similarity score", fontsize=13)
+    plt.ylabel("Density", fontsize=13)
+    plt.legend(fontsize=11)
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
     print(f"Saved histogram to {out_path}")
@@ -123,8 +123,9 @@ def plot_precision_recall(labels, scores, out_path: Path, highlights=None):
             if p is None:
                 continue
             plt.scatter(r, p, s=40, label=f"recall {r:.2f}", color="black")
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
+    plt.xlabel("Recall", fontsize=13)
+    plt.ylabel("Precision", fontsize=13)
+    plt.legend(fontsize=11)
     plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
