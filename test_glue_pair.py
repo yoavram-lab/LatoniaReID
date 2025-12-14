@@ -1,161 +1,114 @@
-IMAGE_A_PATH = "rotated/2013-11/14/IMGP0969.JPG"
-IMAGE_B_PATH = "rotated/2013-12/14/IMGP1235.JPG"
+from pathlib import Path
+import re
 
-import torch
-import cv2
-import numpy as np
+import click
 import matplotlib.pyplot as plt
-from segment_anything import sam_model_registry, SamPredictor
-from lightglue import LightGlue, ALIKED
-from lightglue.utils import rbd
+import numpy as np
+import torch
+from PIL import Image
 
-# --- CONFIGURATION ---
-SAM_CHECKPOINT = "sam_vit_b_01ec64.pth"
-DEVICE = torch.device("cpu")
+from models import get_model
+from similarities import get_similarity_function
 
-def resize_image(image, max_dim=1024):
-    """Resizes image maintaining aspect ratio so longest side is max_dim."""
-    h, w = image.shape[:2]
-    scale = max_dim / max(h, w)
-    if scale >= 1: return image # Don't upscale
-    new_w, new_h = int(w * scale), int(h * scale)
-    return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-def get_masked_input(predictor, image_bgr):
-    """
-    1. Prompts SAM with the Center Point.
-    2. Returns the Mask and the Image with Background removed.
-    """
-    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-    predictor.set_image(image_rgb)
-    
-    h, w = image_bgr.shape[:2]
-    # Prompt: Center point
-    input_point = np.array([[w // 2, h // 2]])
-    input_label = np.array([1])
+def prepare_image(path: Path, preprocess, device: torch.device):
+    """Load, preprocess, and resize the RGB image to match the extractor input."""
+    image = Image.open(path).convert("RGB")
+    tensor = preprocess(image)
+    if tensor.ndim == 3:
+        tensor = tensor.unsqueeze(0)
+    tensor = tensor.to(device)
 
-    masks, scores, _ = predictor.predict(
-        point_coords=input_point,
-        point_labels=input_label,
-        multimask_output=True
-    )
-    
-    # We take index 0 (usually the most concise object mask)
-    best_mask = masks[0]
-    
-    # Create the "Blacked Out" version for the AI
-    mask_3ch = np.stack([best_mask]*3, axis=-1)
-    masked_img = (image_bgr * mask_3ch).astype(np.uint8)
-    
-    return best_mask, masked_img
+    width, height = tensor.shape[-1], tensor.shape[-2]
+    resized = image.resize((width, height))
+    return tensor, np.array(resized)
 
-def plot_matches(img1, img2, kpts0, kpts1, matches):
-    """
-    Custom clean plotting function.
-    """
-    # Create a new combined image for plotting
+
+def plot_matches(img1, img2, kpts0, kpts1):
     h1, w1 = img1.shape[:2]
     h2, w2 = img2.shape[:2]
-    new_h = max(h1, h2)
-    new_w = w1 + w2
-    
-    out_img = np.zeros((new_h, new_w, 3), dtype=np.uint8)
-    out_img[:h1, :w1] = img1
-    out_img[:h2, w1:w1+w2] = img2
-    
-    # Shift keypoints of second image
+    canvas = np.zeros((max(h1, h2), w1 + w2, 3), dtype=np.uint8)
+    canvas[:h1, :w1] = img1
+    canvas[:h2, w1:w1 + w2] = img2
+
     kpts1_shifted = kpts1.copy()
     kpts1_shifted[:, 0] += w1
-    
-    plt.imshow(cv2.cvtColor(out_img, cv2.COLOR_BGR2RGB))
-    
-    # Draw lines
+
+    plt.imshow(canvas)
     for (x0, y0), (x1, y1) in zip(kpts0, kpts1_shifted):
         plt.plot([x0, x1], [y0, y1], c="lime", lw=0.5, alpha=0.7)
         plt.scatter(x0, y0, c="lime", s=3)
         plt.scatter(x1, y1, c="lime", s=3)
-    
-    plt.axis('off')
+    plt.axis("off")
 
-# --- MAIN ---
-def main():
-    # 1. Load Models
-    print("Loading Models...")
-    # sam = sam_model_registry["vit_b"](checkpoint=SAM_CHECKPOINT).to(DEVICE)
-    # sam_predictor = SamPredictor(sam)
-    
-    # ALIKED + LightGlue
-    extractor = ALIKED(max_num_keypoints=2048, detection_threshold=0.01).eval().to(DEVICE)
-    matcher = LightGlue(features='aliked').eval().to(DEVICE)
 
-    # 2. Load & Resize Images
-    print("Loading Images...")
-    img1_raw = cv2.imread(IMAGE_A_PATH)
-    img2_raw = cv2.imread(IMAGE_B_PATH)
-    
-    if img1_raw is None or img2_raw is None:
-        print("❌ Error: Images not found.")
-        return
+def build_output_path(img_a: Path, img_b: Path) -> Path:
+    output_dir = Path("results") / "lightglue"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    strip_ext = lambda p: Path(p).with_suffix("")  # remove final extension only
+    sanitize = lambda p: re.sub(r"[^A-Za-z0-9._-]+", "_", strip_ext(p).as_posix())
+    filename = f"{sanitize(img_a)}-{sanitize(img_b)}.png"
+    return output_dir / filename
 
-    # RESIZE STEP (Critical for visualization)
-    img1_raw = resize_image(img1_raw)
-    img2_raw = resize_image(img2_raw)
 
-    # 3. Segment (Get Masks)
-    # print("Segmenting...")
-    # mask1, img1_masked = get_masked_input(sam_predictor, img1_raw)
-    img1_masked = img1_raw
-    # mask2, img2_masked = get_masked_input(sam_predictor, img2_raw)
-    img2_masked = img2_raw
+def parse_date_id(path: Path):
+    """Extract date/id assuming .../<date>/<id>/<filename> structure."""
+    parts = path.parts
+    if len(parts) < 3:
+        return "unknown", "unknown"
+    return parts[-3], parts[-2]
 
-    # 4. Extract & Match
-    print("Matching...")
-    def prep_tensor(img):
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        return torch.from_numpy(gray / 255.0).float()[None, None].to(DEVICE)
 
-    with torch.no_grad():
-        feats1 = extractor.extract(prep_tensor(img1_masked))
-        feats2 = extractor.extract(prep_tensor(img2_masked))
-        matches01 = matcher({'image0': feats1, 'image1': feats2})
-        feats1, feats2, matches01 = [rbd(x) for x in [feats1, feats2, matches01]]
-        
-        kpts0, kpts1, matches = feats1['keypoints'], feats2['keypoints'], matches01['matches']
-        m_kpts0, m_kpts1 = kpts0[matches[..., 0]], kpts1[matches[..., 1]]
+@click.command()
+@click.argument("image_a", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("image_b", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--extractor", "-e", default="ALIKED", show_default=True, help="Extractor name as defined in models.py")
+@click.option("--device", "-d", default="cpu", show_default=True, help="Device for inference (e.g., cpu or cuda)")
+def main(image_a: Path, image_b: Path, extractor: str, device: str):
+    device = torch.device(device)
+    extractor_model, preprocess, model_name = get_model(extractor)
+    if model_name.lower() != "aliked":
+        raise click.ClickException(f"LightGlue visualization supports the ALIKED extractor; got {model_name}.")
+    extractor_model = extractor_model.eval().to(device)
 
-    # 5. VISUALIZATION (One Clean Figure)
-    print(f"✅ Found {len(m_kpts0)} matches.")
-    
-    plt.figure(figsize=(12, 10))
-    
-    # Row 1: Mask Quality Check
-    # We overlay the mask on the ORIGINAL image in semi-transparent blue
-    # This helps you see if SAM missed the legs or head
-    def overlay(img, mask):
-        overlay = img.copy()
-        overlay[mask == 1] = (0, 255, 0) # Green tint on frog
-        return cv2.addWeighted(img, 0.7, overlay, 0.3, 0)
+    matcher_wrapper = get_similarity_function("lightglue").to(device)
+    matcher = matcher_wrapper.model
+    rbd = matcher_wrapper.rbd
 
-    plt.subplot(2, 2, 1)
-    # plt.imshow(cv2.cvtColor(overlay(img1_raw, mask1), cv2.COLOR_BGR2RGB))
-    plt.imshow(cv2.cvtColor(img1_raw, cv2.COLOR_BGR2RGB))
-    plt.title(f"Segmentation Check {IMAGE_A_PATH}")
-    plt.axis('off')
+    tensor_a, vis_a = prepare_image(image_a, preprocess, device)
+    tensor_b, vis_b = prepare_image(image_b, preprocess, device)
 
-    plt.subplot(2, 2, 2)
-    # plt.imshow(cv2.cvtColor(overlay(img2_raw, mask2), cv2.COLOR_BGR2RGB))
-    plt.imshow(cv2.cvtColor(img2_raw, cv2.COLOR_BGR2RGB))
-    plt.title(f"Segmentation Check {IMAGE_B_PATH}")
-    plt.axis('off')
+    with torch.inference_mode():
+        feats_a = extractor_model(tensor_a)
+        feats_b = extractor_model(tensor_b)
+        matches = matcher({"image0": feats_a, "image1": feats_b})
+        feats_a, feats_b, matches = [rbd(x) for x in (feats_a, feats_b, matches)]
 
-    # Row 2: The Matches
-    plt.subplot(2, 1, 2)
-    plot_matches(img1_masked, img2_masked, m_kpts0.cpu().numpy(), m_kpts1.cpu().numpy(), matches)
-    plt.title(f"LightGlue Matches: {len(m_kpts0)}")
-    
+    kpts0, kpts1 = feats_a["keypoints"], feats_b["keypoints"]
+    match_idx = matches["matches"]
+    if isinstance(match_idx, torch.Tensor) and match_idx.ndim == 3:
+        match_idx = match_idx[0]
+    matched0, matched1 = kpts0[match_idx[..., 0]], kpts1[match_idx[..., 1]]
+
+    click.echo(f"Found {len(matched0)} matches between {image_a} and {image_b}.")
+
+    plt.figure(figsize=(12, 8))
+    plot_matches(vis_a, vis_b, matched0.cpu().numpy(), matched1.cpu().numpy())
+    date_a, id_a = parse_date_id(image_a)
+    date_b, id_b = parse_date_id(image_b)
+    title = (
+        f"{image_a.name} ({date_a}/{id_a}) ↔ "
+        f"{image_b.name} ({date_b}/{id_b}) | "
+        f"{model_name} + LightGlue | {len(matched0)} matches"
+    )
+    plt.title(title)
+
+    output_path = build_output_path(image_a, image_b)
     plt.tight_layout()
-    plt.savefig("clean_output.png", dpi=150)
-    plt.show()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+    click.echo(f"Saved visualization to {output_path}")
+
 
 if __name__ == "__main__":
     main()
