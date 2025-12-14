@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
+import time
 
 import torch
 from torch.utils.data import DataLoader
@@ -168,7 +169,9 @@ def evaluate(similarity_matrix, dataset):
 @click.option('--device', type=str, default='cpu', help='Device to run the model on (e.g., cpu, cuda)')
 @click.option('--batch_size', type=int, default=32, help='Batch size for embedding')
 @click.option('--num_workers', type=int, default=4, help='Number of DataLoader workers')
-def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):    
+@click.option('--ignore_cache', is_flag=True, default=False, help='Recompute embeddings and similarity instead of using cached files')
+def main(model_name, val_csv, checkpoint, device, batch_size, num_workers, ignore_cache):    
+    start_time = time.perf_counter()
     device = torch.device(device)
     model, preprocess, model_name = get_model(model_name)
     
@@ -202,7 +205,7 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
     suffix = f"{model_name}_{Path(val_csv).stem}"
 
     emb_cache = results_dir / f"{suffix}_embeddings.pt"
-    if emb_cache.exists():
+    if emb_cache.exists() and not ignore_cache:
         embeddings = torch.load(emb_cache)        
         print(f"Loaded embeddings from {emb_cache}")
     else:
@@ -212,7 +215,7 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
     embeddings = move_to_device(embeddings, device)
 
     sim_cache = results_dir / f"{suffix}_{similarity_name}_similarity.pt"
-    if sim_cache.exists():
+    if sim_cache.exists() and not ignore_cache:
         similarity_matrix = torch.load(sim_cache, map_location="cpu")
         print(f"Loaded similarity matrix from {sim_cache}")
     else:        
@@ -226,6 +229,8 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers):
     print(f"{model_name} | {val_csv}:")
     print("{}".format(" ".join([f"{k:<18}" for k in metrics.keys()])))
     print("{}".format(" ".join([f"{v:<18.3f}" for v in metrics.values()])), flush=True)
+    elapsed = time.perf_counter() - start_time
+    print(f"Wall-clock {elapsed:.2f}s")
 
 
 if __name__ == "__main__":
