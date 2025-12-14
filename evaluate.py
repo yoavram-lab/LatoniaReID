@@ -164,30 +164,31 @@ def evaluate(similarity_matrix, dataset):
 
 @click.command()
 @click.argument('model_name', type=str)
+@click.argument('similarity', type=str)
 @click.option('--val_csv', type=str, default='bina_photos_validation.csv')
 @click.option('--checkpoint', type=str, default=None, help='Path to the model checkpoint')
 @click.option('--device', type=str, default='cpu', help='Device to run the model on (e.g., cpu, cuda)')
 @click.option('--batch_size', type=int, default=32, help='Batch size for embedding')
 @click.option('--num_workers', type=int, default=4, help='Number of DataLoader workers')
 @click.option('--ignore_cache', is_flag=True, default=False, help='Recompute embeddings and similarity instead of using cached files')
-def main(model_name, val_csv, checkpoint, device, batch_size, num_workers, ignore_cache):    
+def main(model_name, similarity, val_csv, checkpoint, device, batch_size, num_workers, ignore_cache):    
     start_time = time.perf_counter()
     device = torch.device(device)
     model, preprocess, model_name = get_model(model_name)
     
     if model_name.lower() in ('aliked', 'sift'):
-        batch_size = 1  # ALIKED requires batch size of 1 due to variable number of keypoints
-        num_workers = 0  # Disable multiprocessing for ALIKED to avoid issues
-        similarity_name = 'lightglue'
+        batch_size = 1  # variable keypoints; use single-image batches
+        num_workers = 0  # avoid multiprocessing issues with keypoint models
+        similarity_name = similarity or 'lightglue'
         zoomcentercrop = False
     else:
-        similarity_name = 'cosine'
+        similarity_name = similarity or 'cosine'
         zoomcentercrop = True
-    similarity = get_similarity_function(
+    similarity_fn = get_similarity_function(
         similarity_name,
         features=model_name.lower() if similarity_name == 'lightglue' else None
     )
-    similarity = similarity.to(device)
+    similarity_fn = similarity_fn.to(device)
     print(f"Evaluating {model_name}-{similarity_name} on {val_csv} with device {device}...")
     
     df = pd.read_csv(val_csv) 
@@ -219,7 +220,7 @@ def main(model_name, val_csv, checkpoint, device, batch_size, num_workers, ignor
         similarity_matrix = torch.load(sim_cache, map_location="cpu")
         print(f"Loaded similarity matrix from {sim_cache}")
     else:        
-        similarity_matrix = similarity(embeddings, embeddings)
+        similarity_matrix = similarity_fn(embeddings, embeddings)
         similarity_matrix = torch.as_tensor(similarity_matrix).cpu()
         torch.save(similarity_matrix, sim_cache)
         print(f"Saved similarity matrix to {sim_cache}")
