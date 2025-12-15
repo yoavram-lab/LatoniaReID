@@ -166,6 +166,19 @@ def main(
     df_stage1 = pd.read_csv(stage1_csv)
     df_stage2_raw = pd.read_csv(stage2_csv)
 
+    def _ensure_date(df):
+        if "date" in df.columns:
+            return df
+        def _extract_date(rel_path: str) -> str:
+            p = Path(rel_path)
+            return p.parts[1] if len(p.parts) > 1 else ""
+        df = df.copy()
+        df["date"] = df["rel_path"].apply(_extract_date)
+        return df
+
+    df_stage1 = _ensure_date(df_stage1)
+    df_stage2_raw = _ensure_date(df_stage2_raw)
+
     def _match_key(rel_path: str) -> str:
         p = Path(rel_path)
         # Drop the leading folder (rotated_bbox / rotated_mask) so both CSVs align.
