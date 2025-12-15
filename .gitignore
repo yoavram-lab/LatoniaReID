@@ -206,4 +206,5 @@ results/
 .vscode/
 labeler_amphibian_effnet.v4/
 *.pt
-*.ptherrors/
+*.pth
+errors/
