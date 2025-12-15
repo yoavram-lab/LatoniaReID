@@ -1,8 +1,25 @@
 import torch
 from torchvision import transforms
+import numpy as np
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+
+# Allow loading older HF checkpoints that rely on numpy reconstruct pickles
+try:
+    torch.serialization.add_safe_globals([
+        np.core.multiarray._reconstruct,
+        # HF MegaDescriptor checkpoints were serialized before the numpy namespace change
+        (np.core.multiarray._reconstruct, "numpy.core.multiarray._reconstruct"),
+        np.ndarray,
+        (np.ndarray, "numpy.ndarray"),
+        np.dtype,
+        (np.dtype, "numpy.dtype"),
+        np.core.multiarray.scalar,
+        (np.core.multiarray.scalar, "numpy.core.multiarray.scalar"),
+    ])
+except Exception:
+    pass
 
 
 def get_model(model_name):
@@ -90,9 +107,15 @@ def get_efficientnet_model(model_name=None):
 def get_mega_model(mega_model_name):
     if mega_model_name.startswith('MegaDescriptor'):
         import timm
-        model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=True)
-        # model = AutoModel.from_pretrained(f"BVRA/{mega_model_name}", trust_remote_code=True)
-        # model(imgs).pooler_output to get embeddings of dim 1536
+        from huggingface_hub import hf_hub_download
+
+        ckpt = hf_hub_download(f"BVRA/{mega_model_name}", "pytorch_model.bin")
+        state = torch.load(ckpt, map_location="cpu", weights_only=False)
+        if isinstance(state, dict) and 'model' in state:
+            state = state['model']
+
+        model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=False)
+        model.load_state_dict(state, strict=False)
 
         img_size = int(mega_model_name.split('-')[-1])
         preprocess = transforms.Compose([
