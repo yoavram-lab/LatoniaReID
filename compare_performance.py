@@ -259,7 +259,12 @@ def parse_results(text: str) -> Tuple[List[Dict[str, str]], Dict[str, str]]:
     return entries, feature_map
 
 
-def format_table(entries: List[Dict[str, str]], feature_map: Dict[str, str], fmt: str = "md") -> str:
+def format_table(
+    entries: List[Dict[str, str]],
+    feature_map: Dict[str, str],
+    fmt: str = "md",
+    add_max_kp_label: bool = False,
+) -> str:
     header = ["Model (# features)", "Similarity", "Set", "Time (sec)", *METRIC_NAMES]
 
     def pct(val: float) -> str:
@@ -283,6 +288,10 @@ def format_table(entries: List[Dict[str, str]], feature_map: Dict[str, str], fmt
             feat = extract_features(entry["model"], feature_map, entry.get("raw_model", ""))
             model_display = display_model_name(entry["model"], entry.get("raw_model", ""), feat)
             similarity_display = display_similarity_name(entry["similarity"])
+            if add_max_kp_label and entry.get("raw_model", "").startswith("aliked-") and similarity_display.lower() == "lightglue":
+                label_feat = extract_features(entry["model"], feature_map, entry.get("raw_model", ""))
+                label_feat = label_feat or entry.get("raw_model", "").split("-")[-1]
+                model_display = f"ALIKED({label_feat})+LightGlue"
 
         metric_vals = [pct(v) for v in entry["metrics"]]
         rows.append(
@@ -336,10 +345,13 @@ def format_time(time_str: str) -> str:
     return f"{val:,.2f}"
 
 
-def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out_file: Path) -> None:
+def plot_scatter(
+    entries: List[Dict[str, str]],
+    feature_map: Dict[str, str],
+    out_file: Path,
+    add_max_kp_label: bool = False,
+) -> None:
     """Create a scatter plot of time vs Top-1 accuracy."""
-    palette = plt.get_cmap("tab10")
-    palette_idx = 0
 
     def build_label(entry: Dict[str, object]) -> Tuple[str, object]:
         if "stage_models" in entry:
@@ -358,6 +370,10 @@ def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out
             display_model_name(entry["model"], entry.get("raw_model", ""), ""),
         )
         similarity_display = display_similarity_name(entry["similarity"])
+        if add_max_kp_label and entry.get("raw_model", "").startswith("aliked") and similarity_display.lower() == "lightglue":
+            feat = extract_features(entry["model"], feature_map, entry.get("raw_model", ""))
+            feat = feat or entry.get("raw_model", "").split("-")[-1]
+            return feat, None  # only the max_num_keypoints value as label
         if similarity_display.lower() == "cosine":
             return label_base, None
         return f"{label_base}+{similarity_display}", None
@@ -368,10 +384,19 @@ def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out
         set_key = entry.get("set", "").lower()
         if set_key not in {"full", "validation"}:
             continue
+        if add_max_kp_label:
+            # keep only ALIKED + LightGlue
+            if not (
+                entry.get("raw_model", "").startswith("aliked")
+                and display_similarity_name(entry["similarity"]).lower() == "lightglue"
+            ):
+                continue
+            if "stage_models" in entry:
+                continue  # drop two-stage entries
         label, stage_id = build_label(entry)
         t_val_raw = parse_max_time(entry.get("time", ""))
         t_val = t_val_raw / 60.0 if t_val_raw == t_val_raw else None  # minutes, allow missing
-        y_val = entry["metrics"][3] * 100.0  # Top-1 accuracy
+        y_val = entry["metrics"][0] * 100.0  # Top-1 ID accuracy
         current = data.setdefault(label, {})
         existing = current.get(set_key)
         # Prefer entries with time, then higher stage, then higher accuracy
@@ -390,8 +415,8 @@ def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out
 
     xs, ys, labels, colors = [], [], [], []
     for label, sets in data.items():
-        # Special mixing: use Full time with Validation accuracy
-        if label in {"MiewID-FT", "MiewID-FT+ALIKED+LightGlue"}:
+        # Special mixing: use Full time with Validation accuracy for MiewID-FT and two-stage
+        if not add_max_kp_label and label in {"MiewID-FT", "MiewID-FT+ALIKED+LightGlue"}:
             full = sets.get("full", {})
             val = sets.get("validation", {})
             time_val = full.get("time") if full.get("time") is not None else val.get("time")
@@ -405,7 +430,7 @@ def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out
             val = sets.get("validation", {})
             if "time" in full and full.get("time") is not None:
                 x = full["time"]
-                y = full.get("acc")
+                y = val.get("acc") if add_max_kp_label and "acc" in val else full.get("acc")
             elif "time" in val and val.get("time") is not None:
                 x = val["time"]
                 y = val.get("acc")
@@ -424,11 +449,6 @@ def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out
     if not xs:
         print("No time data found to plot.")
         return
-
-    x_min, x_max = min(xs), max(xs)
-    y_min, y_max = min(ys), max(ys)
-    y_pad = max(y_min * 0.05, 1.0)
-    x_pad_factor = 0.05
 
     plt.figure(figsize=(8, 8))
     plt.scatter(xs, ys, marker="o", s=100, color=colors)
@@ -452,13 +472,21 @@ def plot_scatter(entries: List[Dict[str, str]], feature_map: Dict[str, str], out
     plt.ylabel("Top-1 identity accuracy", fontsize=13)
     ax = plt.gca()
     ax.set_xscale("log")
-    ax.set_xticks([0.5, 1, 10, 100, 500])
     ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%g"))
     ax.grid(True, axis="both", linestyle="--", alpha=0.4)
     ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d%%"))
-    # Ensure 500 min tick is visible by slightly extending limits
-    plt.xlim(0.5, 500)
-    plt.ylim(75, 100)
+
+    if add_max_kp_label:
+        tick_vals = list(range(150, 451, 50))
+        x_min, x_max = min(xs), max(xs)
+        plt.xlim(min(0.9 * tick_vals[0], x_min * 0.9), max(tick_vals[-1] * 1.1, x_max * 1.05))
+        plt.xticks(tick_vals)
+        y_min, y_max = min(ys), max(ys)
+        plt.ylim(max(70, y_min - 2), min(100, y_max + 2))
+    else:
+        plt.setp(ax, xticks=[0.5, 1, 10, 100, 500])
+        plt.xlim(0.5, 500)
+        plt.ylim(75, 100)
     plt.margins(x=0.05, y=0.05)
     plt.tight_layout()
     plt.savefig(out_file, dpi=200)
@@ -480,16 +508,21 @@ def main() -> None:
         type=Path,
         help="Optional path to save a scatter plot (default: results/evaluation_results.pdf)",
     )
+    parser.add_argument(
+        "--max_num_keypoints",
+        action="store_true",
+        help="Annotate ALIKED-xxxx runs as ALIKED(xxxx)+LightGlue in table and plot",
+    )
     args = parser.parse_args()
 
     text = RESULT_FILE.read_text(encoding="utf-8")
     entries, feature_map = parse_results(text)
-    table = format_table(entries, feature_map, fmt=args.format)
+    table = format_table(entries, feature_map, fmt=args.format, add_max_kp_label=args.max_num_keypoints)
     print(table)
 
     if args.plot:
         args.plot.parent.mkdir(parents=True, exist_ok=True)
-        plot_scatter(entries, feature_map, args.plot)
+        plot_scatter(entries, feature_map, args.plot, add_max_kp_label=args.max_num_keypoints)
 
 
 if __name__ == "__main__":

@@ -151,6 +151,24 @@ def recall_at_precision(precision, recall, target_precision):
     return None
 
 
+def best_precision_at_recall(precision, recall, thresholds, target_recall):
+    """Return (precision, recall, threshold) for the point with max precision where recall>=target."""
+    cand_idxs = np.where(recall[1:] >= target_recall)[0]  # thresholds align with precision[1:], recall[1:]
+    if cand_idxs.size == 0:
+        return None
+    local_best = cand_idxs[np.argmax(precision[1:][cand_idxs])]
+    return float(precision[1:][local_best]), float(recall[1:][local_best]), float(thresholds[local_best])
+
+
+def best_recall_at_precision(precision, recall, thresholds, target_precision):
+    """Return (precision, recall, threshold) for the point with max recall where precision>=target."""
+    cand_idxs = np.where(precision[1:] >= target_precision)[0]
+    if cand_idxs.size == 0:
+        return None
+    local_best = cand_idxs[np.argmax(recall[1:][cand_idxs])]
+    return float(precision[1:][local_best]), float(recall[1:][local_best]), float(thresholds[local_best])
+
+
 @click.command(help="Plot similarity histograms for same-ID/different-ID pairs across dates.")
 @click.option(
     "--sim-path",
@@ -217,23 +235,31 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
     # Precision-Recall curve
     labels = np.concatenate([np.ones(len(same)), np.zeros(len(different))])
     scores = np.concatenate([np.array(same), np.array(different)])
-    precision, recall, _ = precision_recall_curve(labels, scores)
-    highlights = precision_at_recalls(precision, recall, targets=[0.95])
+    precision, recall, thresholds = precision_recall_curve(labels, scores)
+    target_recall = 0.95
+    target_precision = 0.95
+    highlights = {}
+    best_prec = best_precision_at_recall(precision, recall, thresholds, target_recall)
+    if best_prec is not None:
+        p_val, r_val, t_val = best_prec
+        highlights[r_val] = p_val
     prec_target = 0.95
-    rec_at_prec = recall_at_precision(precision, recall, prec_target)
-    if rec_at_prec is not None:
-        highlights[rec_at_prec] = prec_target  # for plotting, keyed by recall value
+    best_rec = best_recall_at_precision(precision, recall, thresholds, prec_target)
+    if best_rec is not None:
+        p_best, r_best, t_best = best_rec
+        highlights[r_best] = p_best  # for plotting, keyed by recall value
     plot_precision_recall(labels, scores, pr_out_path, highlights=highlights)
 
-    for r_target, p_val in precision_at_recalls(precision, recall, targets=[0.95]).items():
-        if p_val is None:
-            print(f"Recall {r_target:.2f}: not achievable")
-        else:
-            print(f"Recall {r_target:.2f} -> Precision {p_val:.3f}")
-    if rec_at_prec is None:
+    if best_prec is None:
+        print(f"Recall {target_recall:.2f}: not achievable")
+    else:
+        p_val, r_val, t_val = best_prec
+        print(f"Recall {target_recall:.2f} -> Precision {p_val:.3f} at threshold {t_val:.3f}")
+    if best_rec is None:
         print(f"Precision {prec_target:.2f}: not achievable")
     else:
-        print(f"Precision {prec_target:.2f} -> Recall {rec_at_prec:.3f}")
+        p_val, r_val, t_val = best_rec
+        print(f"Precision {prec_target:.2f} -> Recall {r_val:.3f} at threshold {t_val:.3f}")
 
 
 if __name__ == "__main__":
