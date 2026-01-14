@@ -1,3 +1,4 @@
 # LatoniaDetector
-Re-ID Lationa frogs from images
+Re-ID Latonia frogs from images
 
+Hugging Face model: https://huggingface.co/yoavram-lab/Latonia
