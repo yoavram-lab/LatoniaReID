@@ -308,6 +308,7 @@ def mean_average_precision_at_R(similarity_matrix, query_labels, ref_labels, que
         if R > 0: # skip i if no relevant items
             cumsum_relevant = np.cumsum(is_relevant)
             precision_at_r = cumsum_relevant[:R] / (np.arange(1, R + 1))
-            average_precisions.append(np.mean(precision_at_r))
+            ap_r = np.sum(precision_at_r * is_relevant[:R]) / R
+            average_precisions.append(ap_r)
 
     return np.mean(average_precisions) if average_precisions else 0.0
