@@ -193,8 +193,10 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+paper_checklist.md
 exports/
-checkpoints/
+checkpoints
+data_to_publish
 glue_cache/
 lightglue_errors/
 *.png
