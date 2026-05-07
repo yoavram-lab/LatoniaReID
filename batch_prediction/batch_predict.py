@@ -64,6 +64,48 @@ from id_program import Population
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+# CSV helper functions for reading session_id and label columns
+def load_unlabeled_batches(csv_path: str) -> Dict[str, List[str]]:
+    """
+    Load unlabeled images from CSV and group by session_id.
+
+    Expected columns: rel_path, session_id, [date, Inferred, ...]
+    Returns: {session_id: [rel_path1, rel_path2, ...], ...}
+    """
+    batches = defaultdict(list)
+
+    with open(csv_path, 'r') as f:
+        for row in csv.DictReader(f):
+            if 'session_id' in row:
+                session_id = row['session_id']  # e.g., '2021-5/1'
+                rel_path = row['rel_path']
+                batches[session_id].append(rel_path)
+
+    return dict(batches)
+
+
+def build_labeled_registry(csv_path: str, embeddings_dict: Dict[str, object] = None) -> Dict[int, List[str]]:
+    """
+    Build registry: identity → list of image paths from labeled data.
+
+    Expected columns: rel_path, label, [date, ...]
+    embeddings_dict: {rel_path: embedding_vector, ...} (optional, from previous embedding step)
+    Returns: {identity: [rel_path1, rel_path2, ...], ...}
+    """
+    registry = defaultdict(list)
+
+    with open(csv_path, 'r') as f:
+        for row in csv.DictReader(f):
+            if 'label' in row:
+                identity = int(row['label'])
+                rel_path = row['rel_path']
+                # Only include if we have embedding (or if no embeddings provided)
+                if embeddings_dict is None or rel_path in embeddings_dict:
+                    registry[identity].append(rel_path)
+
+    return dict(registry)
+
+
 def parse_date_from_path(path: str) -> str:
     """Extract date from path like 'data/mask1/2013-12/14/IMGP0167.png'
     or 'data_uri/mask1/2016-12/1/DSC_3466.png'
