@@ -125,9 +125,9 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
 @click.option("--eval_interval", type=int, default=5)
 @click.option("--num_workers", type=int, default=4)
 @click.option("--dataparallel/--no-dataparallel", default=False, help="Enable DataParallel for multi-GPU training.")
-@click.option("--margin", type=float, default=0.5, help="ArcFace margin parameter.")
-@click.option("--scale", type=float, default=64.0, help="ArcFace scale parameter.")
-@click.option("--sub_centers", type=int, default=1, help="Number of sub-centers for SubCenterArcFaceLoss.")
+@click.option("--margin", type=float, default=0.4, help="ArcFace margin parameter (α in paper).")
+@click.option("--scale", type=float, default=30.0, help="ArcFace scale parameter (s in paper).")
+@click.option("--sub_centers", type=int, default=1, help="Number of sub-centers for SubCenterArcFaceLoss (k in paper).")
 @click.option("--early_stopping/--no-early-stopping", default=True, help="Enable early stopping based on mAP@R.")
 @click.option("--load_optimizer/--no-load-optimizer", default=False, help="Load optimizers and schedulers from checkpoint.")
 def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, lr_backbone, lr_head, eval_interval, num_workers, dataparallel, margin, scale, sub_centers, early_stopping, load_optimizer):

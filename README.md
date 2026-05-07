@@ -1,7 +1,8 @@
 # LatoniaDetector
-Re-ID Lationa frogs from images
 
-- Checkpoints:
+Re-ID Latonia frogs from images.
+
+## Checkpoints
  - `miewid-msv3_20250720-154043` 2152, no proj in head, backbone finetuning
  - `miewid-msv3_20250719-150002` 1024D
  - `miewid-msv3_20250719-084418` 512D
