@@ -196,13 +196,12 @@ cython_debug/
 paper_checklist.md
 exports/
 checkpoints
-data_to_publish
+data/
 glue_cache/
 lightglue_errors/
 *.png
 *.jpg
 yolov5/
-results/
 *.zip
 .DS_Store
 .vscode/
