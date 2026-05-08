@@ -25,10 +25,9 @@ elif Path('../yolov5').exists():
 megadetector_model_name = 'MDV5A'
 
 
-def bbox_image(image_path: str) -> List[float]:
+def bbox_image(image_path: str, model) -> List[float]:
     """Get bounding box for a single image using MegaDetector."""
     image = vis_utils.load_image(image_path)
-    model = run_detector.load_detector(megadetector_model_name)
     result = model.generate_detections_one_image(image)
     detections_above_threshold = [d for d in result['detections'] if d['conf'] > 0.2]
     if not detections_above_threshold:
@@ -95,6 +94,10 @@ def main(input_csv: Path, output_root: str, pad: bool, device: str) -> None:
     entries = load_csv_entries(str(input_csv))
     click.echo(f"Processing {len(entries)} images from {input_csv}")
 
+    # Load MegaDetector model once
+    click.echo("Loading MegaDetector model (this may take a moment)...")
+    model = run_detector.load_detector(megadetector_model_name)
+
     # Process each row
     updated_rows = []
     for row in tqdm.tqdm(entries, desc="Cropping images"):
@@ -105,7 +108,7 @@ def main(input_csv: Path, output_root: str, pad: bool, device: str) -> None:
             image = Image.open(rel_path)
 
             # Get bounding box
-            bbox = bbox_image(rel_path)
+            bbox = bbox_image(rel_path, model)
 
             # Crop and pad
             cropped = crop_bbox_and_pad_square(image, bbox, pad=pad)
