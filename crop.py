@@ -126,8 +126,8 @@ def main(input_csv: Path, output_root: str, pad: bool, device: str) -> None:
             click.echo(f"Error processing {rel_path}: {e}", err=True)
             continue
 
-    # Write output CSV with correct name
-    output_csv = output_root.parent / "labeled_crop.csv"
+    # Write output CSV (natural naming: output_root.name.csv)
+    output_csv = output_root.parent / f"{output_root.name}.csv"
     save_csv_output(str(output_csv), updated_rows)
     click.echo(f"Cropped images saved to {output_root}")
     click.echo(f"Output CSV saved to {output_csv}")

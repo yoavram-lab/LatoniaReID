@@ -25,7 +25,7 @@ echo "" >> evaluation_results.md
 
 echo "  MiewID-msv3 (zero-shot)..."
 python evaluate.py miewid-msv3 cosine \
-  --val_csv data/labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_bbox.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  MiewID-msv3 (finetuned)..."
 python evaluate.py miewid-msv3 cosine \
@@ -34,11 +34,11 @@ python evaluate.py miewid-msv3 cosine \
 
 echo "  MegaDescriptor-L-224..."
 python evaluate.py MegaDescriptor-L-224 cosine \
-  --val_csv data/labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_bbox.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  MegaDescriptor-L-384..."
 python evaluate.py MegaDescriptor-L-384 cosine \
-  --val_csv data/labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_bbox.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 # ====================== LOCAL MODELS ======================
 echo "## Local Models (ALIKED, SIFT)" >> evaluation_results.md
