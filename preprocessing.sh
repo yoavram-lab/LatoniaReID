@@ -34,7 +34,7 @@ fi
 
 # Path 1: bbox crop (for global models)
 echo "Step 1: MegaDetector bbox cropping..."
-python crop.py \
+python3 crop.py \
   --input_csv labeled.csv \
   --output_root data/labeled_bbox
 
@@ -44,7 +44,7 @@ echo ""
 
 # Path 2: SAM masking (for local models)
 echo "Step 2: SAM masking..."
-python masking.py \
+python3 masking.py \
   --input_csv labeled.csv \
   --output_root data/labeled_mask \
   --sam_checkpoint checkpoints/sam_vit_b_01ec64.pth \
