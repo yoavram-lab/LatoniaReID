@@ -29,7 +29,7 @@ python evaluate.py miewid-msv3 cosine \
 
 echo "  MiewID-msv3 (finetuned)..."
 python evaluate.py miewid-msv3 cosine \
-  --checkpoint checkpoints/miewid-msv3_20250808-143106/ckpt \
+  --checkpoint checkpoints/miewid-msv3_20250808-143106/final_model.ckpt \
   --val_csv validation_set.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  MegaDescriptor-L-224..."
@@ -78,7 +78,7 @@ echo "  Two-stage (MiewID-FT + ALIKED+LG, k=100)..."
 python evaluate_twostage.py miewid-msv3 aliked \
   --stage1_csv validation_set.csv \
   --stage2_csv data/labeled_mask.csv \
-  --checkpoint1 checkpoints/miewid-msv3_20250808-143106/ckpt \
+  --checkpoint1 checkpoints/miewid-msv3_20250808-143106/final_model.ckpt \
   --device $DEVICE --top_k 100 --ignore_cache >> evaluation_results.md
 
 # ====================== OPEN-SET ANALYSIS (Figure 4) ======================
