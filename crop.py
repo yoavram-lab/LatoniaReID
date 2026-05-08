@@ -1,5 +1,6 @@
 import csv
 import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -8,6 +9,18 @@ import tqdm
 from PIL import Image, ImageOps
 from megadetector.detection import run_detector
 from megadetector.visualization import visualization_utils as vis_utils
+
+# MegaDetector requires YOLOv5
+# Setup instructions for first run:
+#   git clone https://github.com/ultralytics/yolov5.git
+#   cd yolov5
+#   git checkout v6.0
+#   pip install -r requirements.txt
+#   cd ..
+if Path('yolov5').exists():
+    sys.path.insert(0, 'yolov5')
+elif Path('../yolov5').exists():
+    sys.path.insert(0, '../yolov5')
 
 megadetector_model_name = 'MDV5A'
 
