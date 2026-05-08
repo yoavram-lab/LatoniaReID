@@ -133,11 +133,11 @@ def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
                 click.echo(f"Error processing {rel_path}: {e}", err=True)
                 continue
 
-    # Write output CSV to data directory
-    output_csv = output_root.parent / f"{output_root.name}.csv"
+    # Write output CSV with correct name
+    output_csv = output_root.parent / "labeled_mask.csv"
     save_csv_output(str(output_csv), updated_rows)
-    click.echo(f"✓ Masked images saved to {output_root}")
-    click.echo(f"✓ Output CSV saved to {output_csv}")
+    click.echo(f"Masked images saved to {output_root}")
+    click.echo(f"Output CSV saved to {output_csv}")
 
 
 if __name__ == "__main__":

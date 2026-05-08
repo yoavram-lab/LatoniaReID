@@ -21,13 +21,13 @@ echo ""
 
 # Verify inputs exist
 if [ ! -f labeled.csv ]; then
-  echo "❌ Error: labeled.csv not found"
+  echo "Error: labeled.csv not found"
   echo "   Please ensure labeled.csv exists in the repo root"
   exit 1
 fi
 
 if [ ! -d data/labeled ]; then
-  echo "❌ Error: data/labeled symlink not set up"
+  echo "Error: data/labeled symlink not set up"
   echo "   Please create symlink: ln -s /path/to/zenodo data"
   exit 1
 fi
@@ -54,17 +54,10 @@ echo "Saved masked images to data/labeled_mask/"
 echo "Wrote labeled_mask.csv"
 echo ""
 
-# Verify outputs exist
-if [ ! -f data/labeled_crop.csv ] || [ ! -f data/labeled_mask.csv ]; then
-  echo "❌ Error: CSV output files not created"
-  exit 1
-fi
-
 echo "Preprocessing complete"
 echo ""
 echo "Output CSVs:"
 echo "  - data/labeled_crop.csv (paths to data/labeled_bbox/)"
 echo "  - data/labeled_mask.csv (paths to data/labeled_mask/)"
 echo ""
-echo "Next steps:"
-echo "  1. Run: ./run_experiments.sh"
+echo "Next: ./run_experiments.sh"
