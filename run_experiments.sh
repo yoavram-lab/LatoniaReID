@@ -25,7 +25,7 @@ echo "" >> evaluation_results.md
 
 echo "  MiewID-msv3 (zero-shot)..."
 python evaluate.py miewid-msv3 cosine \
-  --val_csv labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  MiewID-msv3 (finetuned)..."
 python evaluate.py miewid-msv3 cosine \
@@ -34,11 +34,11 @@ python evaluate.py miewid-msv3 cosine \
 
 echo "  MegaDescriptor-L-224..."
 python evaluate.py MegaDescriptor-L-224 cosine \
-  --val_csv labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  MegaDescriptor-L-384..."
 python evaluate.py MegaDescriptor-L-384 cosine \
-  --val_csv labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 # ====================== LOCAL MODELS ======================
 echo "## Local Models (ALIKED, SIFT)" >> evaluation_results.md
@@ -46,19 +46,19 @@ echo "" >> evaluation_results.md
 
 echo "  ALIKED+LightGlue..."
 python evaluate.py aliked lightglue \
-  --val_csv labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  ALIKED+Classical..."
 python evaluate.py aliked classical \
-  --val_csv labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  SIFT+LightGlue..."
 python evaluate.py sift lightglue \
-  --val_csv labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 
 echo "  SIFT+Classical..."
 python evaluate.py sift classical \
-  --val_csv labeled_mask.csv --device cpu --ignore_cache >> evaluation_results.md
+  --val_csv data/labeled_mask.csv --device cpu --ignore_cache >> evaluation_results.md
 
 # ====================== KEYPOINT SWEEP (Figure 3B) ======================
 echo "## ALIKED Keypoint Sweep" >> evaluation_results.md
@@ -67,7 +67,7 @@ echo "" >> evaluation_results.md
 echo "  Running keypoint sweep M=200..1432..."
 for M in 200 300 400 500 600 700 800 900 1000 1100 1200 1432; do
   python evaluate.py aliked-$M lightglue \
-    --val_csv labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+    --val_csv data/labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
 done
 
 # ====================== TWO-STAGE PIPELINE ======================
@@ -77,7 +77,7 @@ echo "" >> evaluation_results.md
 echo "  Two-stage (MiewID-FT + ALIKED+LG, k=100)..."
 python evaluate_twostage.py miewid-msv3 aliked \
   --stage1_csv validation_set.csv \
-  --stage2_csv labeled_mask.csv \
+  --stage2_csv data/labeled_mask.csv \
   --checkpoint1 checkpoints/miewid-msv3_20250808-143106/ckpt \
   --device $DEVICE --top_k 100 --ignore_cache >> evaluation_results.md
 
@@ -87,8 +87,8 @@ echo "" >> evaluation_results.md
 
 echo "  ALIKED+LightGlue histograms and PR curve..."
 python openset.py \
-  --sim-path results/aliked_labeled_mask_lightglue_similarity.pt \
-  --csv-path labeled_mask.csv \
+  --sim-path results/aliked_data_labeled_mask_lightglue_similarity.pt \
+  --csv-path data/labeled_mask.csv \
   --out results/fig4A_hist_aliked.png \
   --pr-out results/fig4C_pr_aliked.png \
   --x 15,189,666

@@ -35,7 +35,8 @@ fi
 # Path 1: bbox crop (for global models)
 echo "Step 1: MegaDetector bbox cropping..."
 python3 crop.py labeled.csv \
-  --output_root data/labeled_bbox
+  --output_root data/labeled_bbox \
+  --no-pad
 
 echo "Saved cropped images to data/labeled_bbox/"
 echo "Wrote labeled_crop.csv"
@@ -54,7 +55,7 @@ echo "Wrote labeled_mask.csv"
 echo ""
 
 # Verify outputs exist
-if [ ! -f labeled_crop.csv ] || [ ! -f labeled_mask.csv ]; then
+if [ ! -f data/labeled_crop.csv ] || [ ! -f data/labeled_mask.csv ]; then
   echo "❌ Error: CSV output files not created"
   exit 1
 fi
@@ -62,8 +63,8 @@ fi
 echo "Preprocessing complete"
 echo ""
 echo "Output CSVs:"
-echo "  - labeled_crop.csv (paths to data/labeled_bbox/)"
-echo "  - labeled_mask.csv (paths to data/labeled_mask/)"
+echo "  - data/labeled_crop.csv (paths to data/labeled_bbox/)"
+echo "  - data/labeled_mask.csv (paths to data/labeled_mask/)"
 echo ""
 echo "Next steps:"
 echo "  1. Run: ./run_experiments.sh"
