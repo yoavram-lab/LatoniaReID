@@ -107,15 +107,7 @@ def get_efficientnet_model(model_name=None):
 def get_mega_model(mega_model_name):
     if mega_model_name.startswith('MegaDescriptor'):
         import timm
-        from huggingface_hub import hf_hub_download
-
-        ckpt = hf_hub_download(f"BVRA/{mega_model_name}", "pytorch_model.bin")
-        state = torch.load(ckpt, map_location="cpu", weights_only=False)
-        if isinstance(state, dict) and 'model' in state:
-            state = state['model']
-
-        model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=False)
-        model.load_state_dict(state, strict=False)
+        model = timm.create_model(f"hf-hub:BVRA/{mega_model_name}", pretrained=True)
 
         img_size = int(mega_model_name.split('-')[-1])
         preprocess = transforms.Compose([
