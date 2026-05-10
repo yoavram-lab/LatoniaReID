@@ -148,17 +148,17 @@ def evaluate(similarity_matrix, dataset):
         #     dataset.dates, 
         #     dataset.dates, k=3),
         # "R-Precision": R_precision(
-        #     similarity_matrix, 
-        #     dataset.labels, 
-        #     dataset.labels, 
-        #     dataset.dates, 
+        #     similarity_matrix,
+        #     dataset.labels,
+        #     dataset.labels,
+        #     dataset.dates,
         #     dataset.dates),
-        # "mAP@R": mean_average_precision_at_R(
-        #     similarity_matrix, 
-        #     dataset.labels, 
-        #     dataset.labels, 
-        #     dataset.dates, 
-        #     dataset.dates)
+        "mAP@R": mean_average_precision_at_R(
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates)
     }
 
 
