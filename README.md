@@ -174,7 +174,7 @@ If you use this work, please cite the paper:
 ```bibtex
 @article{Yesharim2026,
   title={Near-perfect photo-ID of the Hula painted frog with zero-shot deep local-feature matching},
-  author={Yesharim, Maayan and Perl, R. G. Bina and Roll, Uri and Gafny, Sarig and Geffen, Eli and Ram, Yoav},
+  author={Maayan Yesharim and R. G. Bina Perl and Uri Roll and Sarig Gafny and Eli Geffen and Yoav Ram},
   journal={arXiv preprint arXiv:2601.08798},
   year={2026}
 }
