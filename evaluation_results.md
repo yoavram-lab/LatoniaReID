@@ -46,6 +46,7 @@ aliked | data/labeled_bbox.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy  
 0.900              0.926              0.954              0.900              0.926              0.969              0.976             
 Wall-clock 3976.53s
+
 Creating ALIKED model with max_num_keypoints=1432
 Evaluating aliked-lightglue on data/labeled_mask.csv with device cuda...Saved embeddings to results/aliked_labeled_mask_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_lightglue_similarity.pt
@@ -53,6 +54,7 @@ aliked | data/labeled_mask.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy  
 0.991              0.993              0.996              0.991              0.993              0.996              0.996             
 Wall-clock 26593.20s
+
 Creating ALIKED model with max_num_keypoints=1432
 Evaluating aliked-classical on data/labeled_mask.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_embeddings.pt
@@ -61,5 +63,3 @@ aliked | data/labeled_mask.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy  
 0.908              0.930              0.945              0.908              0.930              0.967              0.976             
 Wall-clock 4434.30s
-Creating SIFT model with max_num_keypoints=1432
-Evaluating sift-lightglue on data/labeled_mask.csv with device cuda...
