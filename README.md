@@ -69,7 +69,6 @@ LatoniaReIDpaper/
 ├── masking.py                         # SAM masking (CSV-based)
 ├── train_set.csv                      # Training split (1,000 labeled images)
 ├── validation_set.csv                 # Validation split (232 labeled images)
-├── labeled.csv                        # Full labeled dataset reference
 │
 ├── evaluate.py                        # Single-model evaluation
 ├── evaluate_twostage.py               # Two-stage evaluation
@@ -78,22 +77,15 @@ LatoniaReIDpaper/
 │
 ├── batch_prediction/
 │   ├── batch_predict.py               # Generate predictions for unlabeled data
-│   └── batch_predictions_stats.py     # Analyze prediction results
-│
-├── apps/
+│   ├── batch_predictions_stats.py     # Analyze expert review statistics
 │   └── batch_prediction_app.py        # Gradio UI for expert review
 │
-├── data/                              # Local data (created by preprocessing)
-│   ├── labeled/                       # Raw labeled images (symlink to Zenodo)
-│   ├── labeled_bbox/                  # Bbox-cropped labeled images
-│   ├── labeled_mask.csv               # CSV pointing to masked images
-│   ├── unlabeled/                     # Raw unlabeled images (symlink)
-│   └── unlabeled_bbox/, unlabeled_mask/  # Preprocessed unlabeled images
-│
-└── results/                           # Evaluation outputs
+└── results/                           # Evaluation outputs (generated)
     ├── evaluation_results.md          # Metric summary
     └── *.pdf                          # Figures and plots
 ```
+
+**Note:** Data directory (`data/`) and preprocessed results are created locally via `preprocessing.sh` and are not committed. Download the dataset from [Zenodo](https://zenodo.org/records/20026776) and set up as a symlink.
 
 ## Usage
 
@@ -126,7 +118,7 @@ python evaluate_twostage.py miewid-msv3 aliked \
 
 ### Batch Prediction (Unlabeled Data)
 
-Generate predictions for unlabeled images and review them interactively:
+Generate predictions for unlabeled images and review results:
 
 ```bash
 # Generate predictions
@@ -135,8 +127,11 @@ python batch_prediction/batch_predict.py \
   --labeled_csv data/labeled_mask.csv \
   --output batch_predictions.json
 
-# Review predictions in Gradio UI
-python apps/batch_prediction_app.py
+# Analyze expert review statistics
+python batch_prediction/batch_predictions_stats.py --input batch_predictions.json
+
+# Review predictions interactively with Gradio UI
+python batch_prediction/batch_prediction_app.py
 # Open http://localhost:7860 in browser
 ```
 
@@ -150,8 +145,8 @@ From the paper (closed-set evaluation on 191 frogs):
 | SIFT+LightGlue | Local feature matching | 79.0% |
 | MiewID-msv3 (finetuned) | Global embedding (trained) | 61.2% |
 | MiewID-msv3 (zero-shot) | Global embedding (zero-shot) | 10.5% |
-| MegaDescriptor-L-224 | Global embedding (zero-shot) | ~10-15% (estimate) |
-| MegaDescriptor-L-384 | Global embedding (zero-shot) | ~10-15% (estimate) |
+| MegaDescriptor-L-224 | Global embedding (zero-shot) | 4.1% |
+| MegaDescriptor-L-384 | Global embedding (zero-shot) | 2.4% |
 
 **Key insight:** Zero-shot local feature matching (ALIKED+LightGlue) **substantially outperforms** fine-tuned global models, achieving near-perfect individual frog identification without any species-specific training data.
 
@@ -177,8 +172,15 @@ python train.py \
 If you use this work, please cite the paper:
 
 ```bibtex
-[Citation info from paper]
+@article{Yesharim2025,
+  title={Near-perfect photo-ID of the Hula painted frog with zero-shot deep local-feature matching},
+  author={Yesharim, Maayan and others},
+  journal={arXiv preprint arXiv:2601.08798},
+  year={2025}
+}
 ```
+
+**arXiv:** https://arxiv.org/abs/2601.08798
 
 ## License
 
