@@ -237,7 +237,7 @@ def main(train_csv, val_csv, backbone_name, checkpoint, m, batch_size, epochs, l
 
         if epoch % eval_interval == 0 or epoch == start_epoch or epoch == start_epoch + epochs:
             # evaluation
-            embeddings = embed(model, val_dataset, device)
+            embeddings = embed(model, val_dataset, device, batch_size, num_workers)
             similarity_func = CosineSimilarity()
             similarity_matrix = similarity_func(embeddings, embeddings)
             metrics = evaluate(similarity_matrix, val_dataset)
