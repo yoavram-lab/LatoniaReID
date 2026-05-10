@@ -158,7 +158,7 @@ python train.py \
   --val_csv validation_set.csv \
   --checkpoint path/to/miewid-msv3 \
   --margin 0.4 --scale 30 \
-  --batch_size 32 --epochs 100
+  --batch_size 24 --epochs 100
 ```
 
 ## Citation
