@@ -172,11 +172,11 @@ python train.py \
 If you use this work, please cite the paper:
 
 ```bibtex
-@article{Yesharim2025,
+@article{Yesharim2026,
   title={Near-perfect photo-ID of the Hula painted frog with zero-shot deep local-feature matching},
-  author={Yesharim, Maayan and others},
+  author={Yesharim, Maayan and Perl, R. G. Bina and Roll, Uri and Gafny, Sarig and Geffen, Eli and Ram, Yoav},
   journal={arXiv preprint arXiv:2601.08798},
-  year={2025}
+  year={2026}
 }
 ```
 
