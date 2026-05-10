@@ -11,6 +11,7 @@ miewid-msv3 | data/labeled_bbox.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy  
 0.105              0.205              0.373              0.105              0.181              0.527              0.612             
 Wall-clock 42.38s
+
 Building Model Backbone for efficientnetv2_rw_m model
 config.model_name efficientnetv2_rw_m
 model_name efficientnetv2_rw_m
@@ -30,6 +31,7 @@ MegaDescriptor-L-224 | data/labeled_bbox.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy  
 0.041              0.128              0.292              0.041              0.104              0.453              0.612             
 Wall-clock 48.83s
+
 Evaluating MegaDescriptor-L-384-cosine on data/labeled_bbox.csv with device cuda:1...
 Saved embeddings to results/MegaDescriptor-L-384_labeled_bbox_embeddings.pt
 Saved similarity matrix to results/MegaDescriptor-L-384_labeled_bbox_cosine_similarity.pt

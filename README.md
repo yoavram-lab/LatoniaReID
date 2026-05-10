@@ -7,7 +7,7 @@ This repository implements a **non-invasive photo-identification system for indi
 
 ## System Overview
 
-- **Dataset:** 1,233 ventral images from 191 endangered Hula painted frogs
+- **Dataset:** 1,232 ventral images from 191 endangered Hula painted frogs
 - **Best approach:** Two-stage pipeline (MiewID global + ALIKED+LightGlue local)
 - **Key models evaluated:** MiewID, MegaDescriptor, ALIKED+LightGlue, SIFT+LightGlue
 - **Application:** Practical, non-invasive field monitoring for conservation
@@ -26,18 +26,13 @@ conda activate glue
 
 ### 2. Download Data
 
-The repo requires Zenodo data (ventral frog images). Set it up as a symlink:
+**Dataset:** [Zenodo: 20026776](https://zenodo.org/records/20026776)  
+1,232 ventral photographs from 191 Hula painted frogs (labeled/unlabeled splits)
 
 ```bash
-# Create symlink to Zenodo data directory (1,233 images from 191 Hula painted frogs)
-ln -s /path/to/zenodo/data data
-
-# Verify structure
-ls data/labeled/          # 1,000 labeled frog images (training split)
-ls data/unlabeled/        # 233+ unlabeled frog images (testing/monitoring)
+# Create symlink to Zenodo data directory
+ln -s /path/to/zenodo/zenodo_data data
 ```
-
-**Dataset:** Ventral (belly) photographs of individual Hula painted frogs for non-invasive identification.
 
 ### 3. Run Preprocessing
 
