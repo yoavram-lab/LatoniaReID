@@ -199,6 +199,7 @@ checkpoints
 data/
 glue_cache/
 lightglue_errors/
+wandb/
 *.png
 *.jpg
 yolov5/
@@ -209,3 +210,4 @@ labeler_amphibian_effnet.v4/
 *.pt
 *.pth
 errors/
+INTEGRATION_PLAN.md
