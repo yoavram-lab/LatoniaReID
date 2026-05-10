@@ -99,7 +99,7 @@ def train(model, loss_func, train_loader, optimizer, loss_optimizer, epoch):
             labels = labels.to(device, non_blocking=True)
         optimizer.zero_grad()
         loss_optimizer.zero_grad()
-        with torch.amp.autocast(device):
+        with torch.amp.autocast(device.type):
             embeddings = model(data)
             loss = loss_func(embeddings, labels)
         loss.backward()
