@@ -13,6 +13,7 @@ from datasets import DataFrameDataset
 from metrics import top_k_accuracy, top_k_id_accuracy
 
 import warnings
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
@@ -40,7 +41,9 @@ def embed(model, dataset, device: torch.device, batch_size, num_workers):
                 emb = model(data)
 
             if isinstance(emb, dict):
-                emb = {k: (v.detach() if torch.is_tensor(v) else v) for k, v in emb.items()}
+                emb = {
+                    k: (v.detach() if torch.is_tensor(v) else v) for k, v in emb.items()
+                }
                 emb["image_shape"] = data.shape[:2]
             elif torch.is_tensor(emb):
                 emb = emb.detach()
@@ -63,30 +66,83 @@ def move_to_device(obj, device: torch.device):
 def compute_metrics(similarity_matrix, dataset):
     return {
         "Top-1 ID accuracy": top_k_id_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=1
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=1,
         ),
         "Top-3 ID accuracy": top_k_id_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=3
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=3,
         ),
         "Top-10 ID accuracy": top_k_id_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=10
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=10,
         ),
         "Top-1 accuracy": top_k_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=1
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=1,
         ),
         "Top-3 accuracy": top_k_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=3
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=3,
         ),
         "Top-50 accuracy": top_k_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=50
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=50,
         ),
         "Top-100 accuracy": top_k_accuracy(
-            similarity_matrix, dataset.labels, dataset.labels, dataset.dates, dataset.dates, k=100
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=100,
+        ),
+        "Top-200 accuracy": top_k_accuracy(
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=200,
         ),
     }
 
 
-def load_or_embed(model, preprocess, model_name, dataset, device, batch_size, num_workers, val_csv, ignore_cache):
+def load_or_embed(
+    model,
+    preprocess,
+    model_name,
+    dataset,
+    device,
+    batch_size,
+    num_workers,
+    val_csv,
+    ignore_cache,
+):
     if preprocess is not None and hasattr(preprocess, "transforms"):
         transforms = preprocess.transforms
         dataset.transform = preprocess
@@ -102,7 +158,9 @@ def load_or_embed(model, preprocess, model_name, dataset, device, batch_size, nu
         embeddings = torch.load(emb_cache)
         click.echo(f"Loaded embeddings from {emb_cache}")
     else:
-        embeddings = embed(model, dataset, device, batch_size=batch_size, num_workers=num_workers)
+        embeddings = embed(
+            model, dataset, device, batch_size=batch_size, num_workers=num_workers
+        )
         torch.save(move_to_device(embeddings, torch.device("cpu")), emb_cache)
         click.echo(f"Saved embeddings to {emb_cache}")
     embeddings = move_to_device(embeddings, device)
@@ -136,14 +194,45 @@ def load_or_embed(model, preprocess, model_name, dataset, device, batch_size, nu
     show_default=False,
     help="Similarity for stage 2 (defaults to lightglue for keypoint models)",
 )
-@click.option("--checkpoint1", default=None, help="Checkpoint path for model1", show_default=True)
-@click.option("--checkpoint2", default=None, help="Checkpoint path for model2", show_default=True)
-@click.option("--device", default="cpu", show_default=True, help="Device to run on (e.g., cpu, cuda)")
-@click.option("--batch_size1", default=32, show_default=True, help="Batch size for model1 embeddings")
-@click.option("--batch_size2", default=1, show_default=True, help="Batch size for model2 embeddings")
-@click.option("--num_workers", default=4, show_default=True, help="DataLoader workers for embeddings")
-@click.option("--top_k", default=100, show_default=True, help="Top-K candidates to re-rank")
-@click.option("--ignore_cache", is_flag=True, default=False, help="Recompute embeddings/similarity instead of using cached files")
+@click.option(
+    "--checkpoint1", default=None, help="Checkpoint path for model1", show_default=True
+)
+@click.option(
+    "--checkpoint2", default=None, help="Checkpoint path for model2", show_default=True
+)
+@click.option(
+    "--device",
+    default="cpu",
+    show_default=True,
+    help="Device to run on (e.g., cpu, cuda)",
+)
+@click.option(
+    "--batch_size1",
+    default=32,
+    show_default=True,
+    help="Batch size for model1 embeddings",
+)
+@click.option(
+    "--batch_size2",
+    default=1,
+    show_default=True,
+    help="Batch size for model2 embeddings",
+)
+@click.option(
+    "--num_workers",
+    default=4,
+    show_default=True,
+    help="DataLoader workers for embeddings",
+)
+@click.option(
+    "--top_k", default=100, show_default=True, help="Top-K candidates to re-rank"
+)
+@click.option(
+    "--ignore_cache",
+    is_flag=True,
+    default=False,
+    help="Recompute embeddings/similarity instead of using cached files",
+)
 def main(
     model1,
     model2,
@@ -169,9 +258,11 @@ def main(
     def _ensure_date(df):
         if "date" in df.columns:
             return df
+
         def _extract_date(rel_path: str) -> str:
             p = Path(rel_path)
             return p.parts[1] if len(p.parts) > 1 else ""
+
         df = df.copy()
         df["date"] = df["rel_path"].apply(_extract_date)
         return df
@@ -181,24 +272,42 @@ def main(
 
     def _match_key(rel_path: str) -> str:
         p = Path(rel_path)
-        # Drop the leading folder (rotated_bbox / rotated_mask) so both CSVs align.
-        parts = p.parts[1:] if len(p.parts) > 1 else p.parts
-        return str(Path(*parts).with_suffix(""))
+        # Extract just the filename without extension
+        return p.stem
 
     df_stage1["match_key"] = df_stage1["rel_path"].apply(_match_key)
     df_stage2_raw["match_key"] = df_stage2_raw["rel_path"].apply(_match_key)
 
-    if df_stage1["match_key"].duplicated().any() or df_stage2_raw["match_key"].duplicated().any():
-        raise click.ClickException("Duplicate match keys detected in input CSVs; cannot align rows.")
+    if (
+        df_stage1["match_key"].duplicated().any()
+        or df_stage2_raw["match_key"].duplicated().any()
+    ):
+        raise click.ClickException(
+            "Duplicate match keys detected in input CSVs; cannot align rows."
+        )
 
     missing = set(df_stage1["match_key"]) ^ set(df_stage2_raw["match_key"])
     if missing:
-        raise click.ClickException(f"Mismatch between stage1 and stage2 CSVs, differing keys: {sorted(list(missing))[:3]}")
+        raise click.ClickException(
+            f"Mismatch between stage1 and stage2 CSVs, differing keys: {sorted(list(missing))[:3]}"
+        )
 
-    df_stage2 = df_stage2_raw.set_index("match_key", drop=False).loc[df_stage1["match_key"]].reset_index(drop=True)
-    if not (df_stage1["label"].reset_index(drop=True).equals(df_stage2["label"].reset_index(drop=True)) and
-            df_stage1["date"].reset_index(drop=True).equals(df_stage2["date"].reset_index(drop=True))):
-        raise click.ClickException("Labels/dates are not aligned between stage1 and stage2 CSVs after matching.")
+    df_stage2 = (
+        df_stage2_raw.set_index("match_key", drop=False)
+        .loc[df_stage1["match_key"]]
+        .reset_index(drop=True)
+    )
+    if not (
+        df_stage1["label"]
+        .reset_index(drop=True)
+        .equals(df_stage2["label"].reset_index(drop=True))
+        and df_stage1["date"]
+        .reset_index(drop=True)
+        .equals(df_stage2["date"].reset_index(drop=True))
+    ):
+        raise click.ClickException(
+            "Labels/dates are not aligned between stage1 and stage2 CSVs after matching."
+        )
 
     # Drop helper column before building datasets
     df = df_stage1.drop(columns=["match_key"])
@@ -213,11 +322,15 @@ def main(
         if model_name_lower in keypoint_models:
             sim = (requested or "lightglue").lower()
             if sim != "lightglue":
-                raise click.ClickException(f"{stage_label}: {model_name_lower} requires lightglue similarity.")
+                raise click.ClickException(
+                    f"{stage_label}: {model_name_lower} requires lightglue similarity."
+                )
             return sim
         sim = (requested or "cosine").lower()
         if sim == "lightglue":
-            raise click.ClickException(f"{stage_label}: {model_name_lower} is not a keypoint model; lightglue similarity not supported.")
+            raise click.ClickException(
+                f"{stage_label}: {model_name_lower} is not a keypoint model; lightglue similarity not supported."
+            )
         return sim
 
     similarity_name_1 = resolve_similarity(name_1_l, similarity1, "Stage 1")
@@ -239,7 +352,15 @@ def main(
     ds = DataFrameDataset(df, transform=preprocess_1)
 
     embeddings1, suffix1 = load_or_embed(
-        model_1, preprocess_1, name_1, ds, device, batch_size1, num_workers1, stage1_csv, ignore_cache
+        model_1,
+        preprocess_1,
+        name_1,
+        ds,
+        device,
+        batch_size1,
+        num_workers1,
+        stage1_csv,
+        ignore_cache,
     )
 
     similarity_fn1 = get_similarity_function(
@@ -261,7 +382,9 @@ def main(
     name_2_l = name_2.lower()
     similarity_name_2 = resolve_similarity(name_2_l, similarity2, "Stage 2")
     if name_2_l not in keypoint_models:
-        raise click.ClickException("Stage 2 must be a keypoint model (e.g., ALIKED) for reranking.")
+        raise click.ClickException(
+            "Stage 2 must be a keypoint model (e.g., ALIKED) for reranking."
+        )
     batch_size2 = 1
     num_workers2 = 0
     if checkpoint2:
@@ -270,7 +393,15 @@ def main(
         name_2 = checkpoint2.split("/")[1]
     ds2 = DataFrameDataset(df_stage2, transform=preprocess_2)
     embeddings2, suffix2 = load_or_embed(
-        model_2, preprocess_2, name_2, ds2, device, batch_size2, num_workers2, stage2_csv, ignore_cache
+        model_2,
+        preprocess_2,
+        name_2,
+        ds2,
+        device,
+        batch_size2,
+        num_workers2,
+        stage2_csv,
+        ignore_cache,
     )
     similarity_fn2 = get_similarity_function(
         similarity_name_2,
@@ -302,8 +433,8 @@ def main(
             "Top-10 ID accuracy",
             "Top-1 accuracy",
             "Top-3 accuracy",
-            "Top-50 accuracy",
             "Top-100 accuracy",
+            "Top-200 accuracy",
         ]
         header = " ".join([f"{k:<18}" for k in keys])
         values = " ".join([f"{metrics[k]:<18.3f}" for k in keys])
