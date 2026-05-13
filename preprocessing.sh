@@ -39,25 +39,25 @@ python3 crop.py labeled.csv \
   --no-pad
 
 echo "Saved cropped images to data/labeled_bbox/"
-echo "Wrote labeled_crop.csv"
+echo "Wrote labeled_bbox.csv"
 echo ""
 
 # Path 2: SAM masking (for local models)
 echo "Step 2: SAM masking..."
-python3 masking.py labeled.csv \
-  --output_root data/labeled_mask \
+python3 masking.py labeled_bbox.csv \
+  --output_root data/labeled_bbox_mask \
   --sam_checkpoint checkpoints/sam_vit_b_01ec64.pth \
   --sam_type vit_b \
   --device cuda
 
-echo "Saved masked images to data/labeled_mask/"
-echo "Wrote labeled_mask.csv"
+echo "Saved masked images to data/labeled_bbox_mask/"
+echo "Wrote labeled_bbox_mask.csv"
 echo ""
 
 echo "Preprocessing complete"
 echo ""
 echo "Output CSVs:"
-echo "  - data/labeled_crop.csv (paths to data/labeled_bbox/)"
-echo "  - data/labeled_mask.csv (paths to data/labeled_mask/)"
+echo "  - data/labeled_bbox.csv (paths to data/labeled_bbox/)"
+echo "  - data/labeled_bbox_mask.csv (paths to data/labeled_bbox_mask/)"
 echo ""
 echo "Next: ./run_experiments.sh"
