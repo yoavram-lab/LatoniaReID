@@ -169,6 +169,12 @@ def best_recall_at_precision(precision, recall, thresholds, target_precision):
     return float(precision[1:][local_best]), float(recall[1:][local_best]), float(thresholds[local_best])
 
 
+def metrics_at_threshold(precision, recall, thresholds, target_threshold):
+    """Return (precision, recall, threshold) for the closest threshold to target."""
+    idx = np.argmin(np.abs(thresholds - target_threshold))
+    return float(precision[1:][idx]), float(recall[1:][idx]), float(thresholds[idx])
+
+
 @click.command(help="Plot similarity histograms for same-ID/different-ID pairs across dates.")
 @click.option(
     "--sim-path",
@@ -206,14 +212,21 @@ def best_recall_at_precision(precision, recall, thresholds, target_precision):
     multiple=True,
     help="Comma-separated x values for vertical lines, e.g. '--x 15,189,666' or repeated '--x 15 --x 189'.",
 )
-def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
+@click.option(
+    "--threshold",
+    type=float,
+    default=None,
+    help="Look up precision/recall at a specific threshold value.",
+)
+def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw, threshold):
     sim = torch.load(sim_path, map_location="cpu")
     if hasattr(sim, "numpy"):
         sim = sim.numpy()
 
     df = pd.read_csv(csv_path)
     rel_paths = df["rel_path"].tolist()
-    dates, ids = zip(*(parse_date_id(p) for p in rel_paths))
+    dates = df["date"].tolist()
+    ids = df["label"].tolist()
 
     # Identity-level aggregation: max score per identity (excluding same-date pairs).
     same, different = collect_id_level_scores(sim, dates, ids)
@@ -260,6 +273,10 @@ def main(sim_path, csv_path, out_path, pr_out_path, x_lines_raw):
     else:
         p_val, r_val, t_val = best_rec
         print(f"Precision {prec_target:.2f} -> Recall {r_val:.3f} at threshold {t_val:.3f}")
+
+    if threshold is not None:
+        p, r, t = metrics_at_threshold(precision, recall, thresholds, threshold)
+        print(f"Threshold {t:.3f} -> Precision {p:.3f}, Recall {r:.3f}")
 
 
 if __name__ == "__main__":
