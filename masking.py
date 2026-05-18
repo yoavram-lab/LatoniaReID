@@ -10,7 +10,9 @@ from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
 
-def initialize_sam(sam_checkpoint: Path, sam_type: str, device: torch.device) -> SamPredictor:
+def initialize_sam(
+    sam_checkpoint: Path, sam_type: str, device: torch.device
+) -> SamPredictor:
     """Load SAM predictor on the requested device."""
     if not sam_checkpoint.exists():
         raise click.ClickException(f"Checkpoint not found: {sam_checkpoint}")
@@ -29,7 +31,9 @@ def apply_mask(image_rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return masked
 
 
-def crop_around_mask(image: np.ndarray, mask: np.ndarray, padding: int = 5) -> np.ndarray:
+def crop_around_mask(
+    image: np.ndarray, mask: np.ndarray, padding: int = 5
+) -> np.ndarray:
     """Crop image around masked region with padding pixels in each direction."""
     mask_bool = mask.astype(bool)
 
@@ -49,7 +53,7 @@ def crop_around_mask(image: np.ndarray, mask: np.ndarray, padding: int = 5) -> n
     x_max = min(image.shape[1] - 1, x_max + padding)
 
     # Crop image
-    return image[y_min:y_max+1, x_min:x_max+1]
+    return image[y_min : y_max + 1, x_min : x_max + 1]
 
 
 def save_masked_image(save_path: Path, masked_image: np.ndarray) -> None:
@@ -61,7 +65,7 @@ def save_masked_image(save_path: Path, masked_image: np.ndarray) -> None:
 def load_csv_entries(csv_path: str) -> List[Dict[str, Any]]:
     """Load all rows from CSV, preserving all columns."""
     entries = []
-    with open(csv_path, 'r') as f:
+    with open(csv_path, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
             entries.append(row)
@@ -75,29 +79,46 @@ def save_csv_output(csv_path: str, rows: List[Dict[str, Any]]) -> None:
         return
 
     fieldnames = rows[0].keys()
-    with open(csv_path, 'w', newline='') as f:
+    with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
 
 @click.command()
-@click.argument('input_csv', type=click.Path(exists=True, path_type=Path))
-@click.option('--output_root', default='data/labeled_mask_crop',
-              help='Output folder for masked images')
-@click.option('--sam_checkpoint', type=click.Path(exists=True, dir_okay=False, path_type=Path),
-              default=Path("checkpoints/sam_vit_b_01ec64.pth"),
-              help='Path to SAM checkpoint')
-@click.option('--sam_type', type=str, default='vit_b',
-              help='SAM model type (vit_b, vit_l, vit_h)')
-@click.option('--device', type=str, default='cuda',
-              help='Device for inference (cuda or cpu)')
-@click.option('--padding', type=int, default=5,
-              help='Padding pixels around masked region')
-@click.option('--overwrite/--skip-existing', default=False,
-              help='Overwrite existing masked images')
-def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
-         device: str, padding: int, overwrite: bool) -> None:
+@click.argument("input_csv", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--output_root", default="data/labeled_mask", help="Output folder for masked images"
+)
+@click.option(
+    "--sam_checkpoint",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=Path("checkpoints/sam_vit_b_01ec64.pth"),
+    help="Path to SAM checkpoint",
+)
+@click.option(
+    "--sam_type", type=str, default="vit_b", help="SAM model type (vit_b, vit_l, vit_h)"
+)
+@click.option(
+    "--device", type=str, default="cuda", help="Device for inference (cuda or cpu)"
+)
+@click.option(
+    "--padding", type=int, default=5, help="Padding pixels around masked region"
+)
+@click.option(
+    "--overwrite/--skip-existing",
+    default=False,
+    help="Overwrite existing masked images",
+)
+def main(
+    input_csv: Path,
+    output_root: str,
+    sam_checkpoint: Path,
+    sam_type: str,
+    device: str,
+    padding: int,
+    overwrite: bool,
+) -> None:
     """
     Apply SAM masking to images from CSV and crop around masked region.
 
@@ -119,12 +140,12 @@ def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
     updated_rows = []
     with torch.inference_mode():
         for row in tqdm(entries, desc="Masking images"):
-            rel_path = row['rel_path']
+            rel_path = row["rel_path"]
 
             try:
                 # Load image
                 with Image.open(rel_path) as img_pil:
-                    image_rgb = np.array(img_pil.convert('RGB'))
+                    image_rgb = np.array(img_pil.convert("RGB"))
 
                 # Set image for SAM
                 predictor.set_image(image_rgb)
@@ -144,15 +165,17 @@ def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
                 masked_image = apply_mask(image_rgb, selected_mask)
 
                 # Crop around masked region
-                cropped_image = crop_around_mask(masked_image, selected_mask, padding=padding)
+                cropped_image = crop_around_mask(
+                    masked_image, selected_mask, padding=padding
+                )
 
                 # Save masked image
                 output_path = output_root / Path(rel_path).name
-                output_path = output_path.with_suffix('.png')
+                output_path = output_path.with_suffix(".png")
                 save_masked_image(output_path, cropped_image)
 
                 # Update row with new path
-                row['rel_path'] = str(output_path)
+                row["rel_path"] = str(output_path)
                 updated_rows.append(row)
 
             except Exception as e:
@@ -160,7 +183,7 @@ def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
                 continue
 
     # Write output CSV with correct name
-    output_csv = output_root.parent / "labeled_mask_crop.csv"
+    output_csv = output_root.parent / "labeled_mask.csv"
     save_csv_output(str(output_csv), updated_rows)
     click.echo(f"Masked images saved to {output_root}")
     click.echo(f"Output CSV saved to {output_csv}")
