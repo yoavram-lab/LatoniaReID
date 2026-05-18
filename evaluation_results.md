@@ -9,7 +9,7 @@ Saved embeddings to results/miewid-msv3_labeled_bbox_embeddings.pt
 Saved similarity matrix to results/miewid-msv3_labeled_bbox_cosine_similarity.pt
 miewid-msv3 | data/labeled_bbox.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.105              0.205              0.373              0.105              0.181                                 0.612                                     
+0.105              0.205              0.373              0.105              0.181              0.0                0.612                                     
 Wall-clock 45.04s
 Building Model Backbone for efficientnetv2_rw_m model
 config.model_name efficientnetv2_rw_m
@@ -21,21 +21,21 @@ Saved embeddings to results/miewid-msv3_20260510-174925_validation_set_embedding
 Saved similarity matrix to results/miewid-msv3_20260510-174925_validation_set_cosine_similarity.pt
 miewid-msv3_20260510-174925 | validation_set.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.621              0.738              0.922              0.621              0.680                                 0.990                                   
+0.621             0.738             0.922             0.621             0.680             0.0               0.990
 Wall-clock 11.00s
 Evaluating MegaDescriptor-L-224-cosine on data/labeled_bbox.csv with device cuda...
 Saved embeddings to results/MegaDescriptor-L-224_labeled_bbox_embeddings.pt
 Saved similarity matrix to results/MegaDescriptor-L-224_labeled_bbox_cosine_similarity.pt
 MegaDescriptor-L-224 | data/labeled_bbox.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.041              0.128              0.292              0.041              0.104                                 0.612                                        
+0.041             0.128             0.292             0.041             0.104             0.0               0.612
 Wall-clock 51.15s
 Evaluating MegaDescriptor-L-384-cosine on data/labeled_bbox.csv with device cuda...
 Saved embeddings to results/MegaDescriptor-L-384_labeled_bbox_embeddings.pt
 Saved similarity matrix to results/MegaDescriptor-L-384_labeled_bbox_cosine_similarity.pt
 MegaDescriptor-L-384 | data/labeled_bbox.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.024              0.089              0.226              0.024              0.070                                 0.530                                        
+0.024             0.089             0.226             0.024             0.070             0.0               0.530
 Wall-clock 51.67s
 ## Local Models (ALIKED, SIFT)
 
@@ -45,7 +45,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.998              0.998              0.998              0.998              0.998                                 0.998                                       
+0.998             0.998             0.998             0.998             0.998             0.0               0.998
 Wall-clock 22760.22s
 Creating ALIKED model with max_num_keypoints=1432
 Evaluating aliked-classical on data/labeled_mask_crop.csv with device cuda...
@@ -53,7 +53,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_classical_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.933              0.950              0.965              0.933              0.946                                 0.989                                      
+0.933             0.950             0.965             0.933             0.946             0.0               0.989
 Wall-clock 4249.07s
 Creating SIFT model with max_num_keypoints=1432
 Evaluating sift-lightglue on data/labeled_mask_crop.csv with device cuda...
@@ -61,7 +61,7 @@ Saved embeddings to results/sift_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/sift_labeled_mask_crop_lightglue_similarity.pt
 sift | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.808              0.843              0.861              0.808              0.843                                 0.904                                       
+0.808             0.843             0.861             0.808             0.843             0.0               0.904
 Wall-clock 22901.17s
 Creating SIFT model with max_num_keypoints=1432
 Evaluating sift-classical on data/labeled_mask_crop.csv with device cpu...
@@ -69,7 +69,7 @@ Saved embeddings to results/sift_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/sift_labeled_mask_crop_classical_similarity.pt
 sift | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.407              0.488              0.601              0.407              0.488                                 0.821                          
+0.407             0.488             0.601             0.407             0.488             0.0               0.821
 Wall-clock 8589.43s
 
 ## Two-Stage Pipeline
@@ -137,7 +137,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.876              0.922              0.954              0.876              0.919                                 0.980             
+0.876             0.922             0.954             0.876             0.919             0.0               0.980
 Wall-clock 8744.75s
 Creating ALIKED model with max_num_keypoints=300
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
@@ -145,7 +145,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.959              0.978              0.980              0.959              0.978                                 0.994             
+0.959             0.978             0.980             0.959             0.978             0.0               0.994
 Wall-clock 12383.00s
 Creating ALIKED model with max_num_keypoints=400
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
@@ -153,7 +153,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.991              0.993              0.996              0.991              0.993                                 0.996             
+0.991             0.993             0.996             0.991             0.993             0.0               0.996
 Wall-clock 11904.07s
 Creating ALIKED model with max_num_keypoints=500
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
@@ -161,7 +161,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.989              0.994              0.996              0.989              0.994                                 0.998             
+0.989             0.994             0.996             0.989             0.994             0.0               0.998
 Wall-clock 11474.46s
 Creating ALIKED model with max_num_keypoints=600
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
@@ -169,7 +169,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.994              0.994              0.994              0.994              0.994                                 0.998             
+0.994             0.994             0.994             0.994             0.994             0.0               0.998
 Wall-clock 14144.66s
 Creating ALIKED model with max_num_keypoints=700
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
@@ -177,7 +177,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.993              0.996              0.996              0.993              0.996                                 0.998             
+0.993             0.996             0.996             0.993             0.996             0.0               0.998
 Wall-clock 13700.03s
 Creating ALIKED model with max_num_keypoints=800
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
@@ -185,7 +185,7 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.998              0.998              0.998              0.998              0.998                                 0.998             
+0.998             0.998             0.998             0.998             0.998             0.0               0.998
 Wall-clock 17041.35s
 
 Creating ALIKED model with max_num_keypoints=900
@@ -194,13 +194,13 @@ Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.996              0.998              0.998              0.996              0.998                                 0.998             
+0.996             0.998             0.998             0.996             0.998             0.0               0.998
 Wall-clock 16978.83s
 Creating ALIKED model with max_num_keypoints=1000
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
 aliked | data/labeled_mask_crop.csv:
-Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.998              0.998              0.998              0.998              0.998                                 0.998             
+Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-100 accuracy   Top-200 accuracy   mAP@R             
+0.998              0.998              0.998              0.998              0.998              0.998              0.998              0.971             
 Wall-clock 16749.37s
