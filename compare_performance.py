@@ -14,6 +14,7 @@ METRIC_NAMES = [
     "Top-1 ID accuracy",
     "Top-3 ID accuracy",
     "Top-10 ID accuracy",
+    "Top-10 accuracy",
     "Top-1 accuracy",
     "Top-3 accuracy",
     "Top-50 accuracy",

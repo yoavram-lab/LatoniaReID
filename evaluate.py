@@ -116,6 +116,14 @@ def evaluate(similarity_matrix, dataset):
             dataset.dates,
             k=10,
         ),
+        "Top-10 accuracy": top_k_accuracy(
+            similarity_matrix,
+            dataset.labels,
+            dataset.labels,
+            dataset.dates,
+            dataset.dates,
+            k=10,
+        ),
         "Top-1 accuracy": top_k_accuracy(
             similarity_matrix,
             dataset.labels,
