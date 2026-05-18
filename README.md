@@ -80,14 +80,7 @@ LatoniaReIDpaper/
 │   ├── batch_predictions_stats.py     # Analyze expert review statistics
 │   └── batch_prediction_app.py        # Gradio UI for expert review
 │
-├── checkpoints/                       # Model checkpoints
-│   └── miewid-msv3-latonia-1232.pt   # Finetuned MiewID checkpoint
-│
-├── results/                           # Evaluation outputs (generated)
-    ├── evaluation_results.md          # Markdown table with all results
-    ├── *_embeddings.pt                # Precomputed embeddings
-    ├── *_similarity.pt                # Similarity matrices
-    ├── *.png                          # Histograms and PR curves
+├── figures/                           
     └── *.pdf                          # Scatter plots and figures
 ```
 
@@ -147,21 +140,11 @@ Closed-set evaluation on 191 frogs (1,232 labeled images):
 
 | Model | Method | Top-1 Accuracy |
 |-------|--------|---|
-| **ALIKED(1000)+LightGlue** | **Zero-shot local feature matching** | **99.8%** ✓ |
-| **MiewID-FT + ALIKED(1432)+LightGlue (Stage2)** | **Two-stage pipeline** | **99.0%** ✓ |
-| ALIKED(1432)+LightGlue | Zero-shot local matching (max keypoints) | 99.8% |
-| SIFT+LightGlue | Zero-shot local feature matching | 80.8% |
+| **ALIKED+LightGlue** | **Zero-shot local feature matching** | **99.8%** ✓ |
+| **Two Stage** | **Two-stage pipeline** | **99.0%** ✓ |
 | MiewID-msv3 (finetuned) | Global embedding (trained) | 62.1% |
-| ALIKED(400)+LightGlue | Zero-shot local matching (400 keypoints) | 99.1% |
 | MiewID-msv3 (zero-shot) | Global embedding (zero-shot) | 10.5% |
-| MegaDescriptor-L-224 | Global embedding (zero-shot) | 4.1% |
-| MegaDescriptor-L-384 | Global embedding (zero-shot) | 2.4% |
 
-**Key findings:**
-- **ALIKED+LightGlue achieves 99.8% accuracy** with just 1,000 keypoints (5-minute inference), surpassing all fine-tuned global models
-- Efficiency matters: ALIKED(1000) is **5× faster** than ALIKED(1432) while maintaining same accuracy
-- Two-stage pipeline (MiewID global ranking + ALIKED local refinement) achieves **99.0% accuracy** with excellent interpretability
-- Zero-shot local feature matching **substantially outperforms** fine-tuned global embeddings, proving no species-specific training is needed
 
 ## Training
 
@@ -178,7 +161,7 @@ python train.py \
   --batch_size 24 --epochs 100
 ```
 
-**Note:** Global embedding models (like MiewID) are less effective than zero-shot local matching for this task. The paper demonstrates that **ALIKED+LightGlue achieves 98% accuracy without any frog-specific training**, making finetuning unnecessary.
+**Note:** Global embedding models (like MiewID) are less effective than zero-shot local matching for this task. The paper demonstrates that **ALIKED+LightGlue achieves 99% accuracy without any frog-specific training**, making finetuning unnecessary.
 
 ## Citation
 
