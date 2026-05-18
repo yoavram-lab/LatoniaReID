@@ -9,8 +9,6 @@ from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
-DEFAULT_EXTENSIONS = (".jpg", ".jpeg", ".png")
-
 
 def initialize_sam(sam_checkpoint: Path, sam_type: str, device: torch.device) -> SamPredictor:
     """Load SAM predictor on the requested device."""
@@ -29,6 +27,29 @@ def apply_mask(image_rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
     masked = np.zeros_like(image_rgb)
     masked[mask_bool] = image_rgb[mask_bool]
     return masked
+
+
+def crop_around_mask(image: np.ndarray, mask: np.ndarray, padding: int = 5) -> np.ndarray:
+    """Crop image around masked region with padding pixels in each direction."""
+    mask_bool = mask.astype(bool)
+
+    if not mask_bool.any():
+        return image
+
+    # Find bounding box of mask
+    rows = np.any(mask_bool, axis=1)
+    cols = np.any(mask_bool, axis=0)
+    y_min, y_max = np.where(rows)[0][[0, -1]]
+    x_min, x_max = np.where(cols)[0][[0, -1]]
+
+    # Add padding
+    y_min = max(0, y_min - padding)
+    y_max = min(image.shape[0] - 1, y_max + padding)
+    x_min = max(0, x_min - padding)
+    x_max = min(image.shape[1] - 1, x_max + padding)
+
+    # Crop image
+    return image[y_min:y_max+1, x_min:x_max+1]
 
 
 def save_masked_image(save_path: Path, masked_image: np.ndarray) -> None:
@@ -62,7 +83,7 @@ def save_csv_output(csv_path: str, rows: List[Dict[str, Any]]) -> None:
 
 @click.command()
 @click.argument('input_csv', type=click.Path(exists=True, path_type=Path))
-@click.option('--output_root', default='data/labeled_mask',
+@click.option('--output_root', default='data/labeled_mask_crop',
               help='Output folder for masked images')
 @click.option('--sam_checkpoint', type=click.Path(exists=True, dir_okay=False, path_type=Path),
               default=Path("checkpoints/sam_vit_b_01ec64.pth"),
@@ -71,12 +92,14 @@ def save_csv_output(csv_path: str, rows: List[Dict[str, Any]]) -> None:
               help='SAM model type (vit_b, vit_l, vit_h)')
 @click.option('--device', type=str, default='cuda',
               help='Device for inference (cuda or cpu)')
+@click.option('--padding', type=int, default=5,
+              help='Padding pixels around masked region')
 @click.option('--overwrite/--skip-existing', default=False,
               help='Overwrite existing masked images')
 def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
-         device: str, overwrite: bool) -> None:
+         device: str, padding: int, overwrite: bool) -> None:
     """
-    Apply SAM masking to images from CSV.
+    Apply SAM masking to images from CSV and crop around masked region.
 
     INPUT CSV: rel_path, [label, date, session_id, ...]
     OUTPUT CSV: rel_path (updated), [label, date, session_id, ...] (preserved)
@@ -120,10 +143,13 @@ def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
                 # Apply mask
                 masked_image = apply_mask(image_rgb, selected_mask)
 
+                # Crop around masked region
+                cropped_image = crop_around_mask(masked_image, selected_mask, padding=padding)
+
                 # Save masked image
                 output_path = output_root / Path(rel_path).name
                 output_path = output_path.with_suffix('.png')
-                save_masked_image(output_path, masked_image)
+                save_masked_image(output_path, cropped_image)
 
                 # Update row with new path
                 row['rel_path'] = str(output_path)
@@ -134,7 +160,7 @@ def main(input_csv: Path, output_root: str, sam_checkpoint: Path, sam_type: str,
                 continue
 
     # Write output CSV with correct name
-    output_csv = output_root.parent / "labeled_mask.csv"
+    output_csv = output_root.parent / "labeled_mask_crop.csv"
     save_csv_output(str(output_csv), updated_rows)
     click.echo(f"Masked images saved to {output_root}")
     click.echo(f"Output CSV saved to {output_csv}")
