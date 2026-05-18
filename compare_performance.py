@@ -494,7 +494,7 @@ def plot_scatter(
         print("No time data found to plot.")
         return
 
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(12, 12))
     plt.scatter(xs, ys, marker="o", s=100, color=colors)
     threshold_min = 2.0  # minutes threshold for label placement
     for x, y, label, c in zip(xs, ys, labels, colors):
