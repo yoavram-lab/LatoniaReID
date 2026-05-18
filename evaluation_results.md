@@ -16,7 +16,7 @@ Building Model Backbone for efficientnetv2_rw_m model
 config.model_name efficientnetv2_rw_m
 model_name efficientnetv2_rw_m
 final_in_features 2152
-python evaluate.py miewid-msv3 cosine --val_csv validation_set.csv
+python evaluate.py miewid-msv3 cosine --val_csv validation_set.csv --checkpoint checkpoints/miewid-msv3_20260510-174925/final_model.ckpt
 Evaluating miewid-msv3-cosine on validation_set.csv with device cuda...
 Loading checkpoint from checkpoints/miewid-msv3_20260510-174925/final_model.ckpt...
 Saved embeddings to results/miewid-msv3_20260510-174925_validation_set_embeddings.pt                                                                                                                         
@@ -86,7 +86,7 @@ Building Model Backbone for efficientnetv2_rw_m model
 config.model_name efficientnetv2_rw_m
 model_name efficientnetv2_rw_m
 final_in_features 2152
-python evaluate_twostage.py miewid-msv3 aliked --similarity1 cosine --similarity2 lightglue
+python evaluate_twostage.py miewid-msv3 aliked --similarity1 cosine --similarity2 lightglue --checkpoint checkpoints/miewid-msv3_20260510-174925/final_model.ckpt
 Loading checkpoint for model1 from checkpoints/miewid-msv3_20260510-174925/final_model.ckpt
 Saved embeddings to results/miewid-msv3_20260510-174925_labeled_bbox_embeddings.pt
 Saved similarity matrix to results/miewid-msv3_20260510-174925_labeled_bbox_cosine_similarity.pt
@@ -107,7 +107,7 @@ Building Model Backbone for efficientnetv2_rw_m model
 config.model_name efficientnetv2_rw_m
 model_name efficientnetv2_rw_m
 final_in_features 2152
-python evaluate_twostage.py miewid-msv3 aliked --similarity1 cosine --similarity2 lightglue
+python evaluate_twostage.py miewid-msv3 aliked --similarity1 cosine --similarity2 lightglue --checkpoint checkpoints/miewid-msv3_20260510-174925/final_model.ckpt
 Loading checkpoint for model1 from checkpoints/miewid-msv3_20260510-174925/final_model.ckpt
 Saved embeddings to results/miewid-msv3_20260510-174925_validation_set_embeddings.pt
 Saved similarity matrix to results/miewid-msv3_20260510-174925_validation_set_cosine_similarity.pt
