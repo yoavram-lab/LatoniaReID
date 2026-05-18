@@ -501,11 +501,14 @@ def plot_scatter(
         align_right = x <= threshold_min  # right-of-marker text when x <= 2 minutes
         offset_x = 10 if align_right else -10
         ha = "left" if align_right else "right"
+        offset_y = -5
+        if label in ("ALIKED(500)+LightGlue", "ALIKED(700)+LightGlue"):
+            offset_y = -3  # Move these labels higher by 2 points
         plt.annotate(
             label,
             (x, y),
             textcoords="offset points",
-            xytext=(offset_x, -5),
+            xytext=(offset_x, offset_y),
             fontsize=12,
             ha=ha,
             va="center",
