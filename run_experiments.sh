@@ -64,29 +64,29 @@ python evaluate.py sift classical \
 echo "## Two-Stage Pipeline" >> evaluation_results.md
 echo "" >> evaluation_results.md
 
-echo "  Two-stage (MiewID-FT + ALIKED+LG, k=200)..."
+echo "  Two-stage (MiewID-FT + ALIKED+LG, k=100)..."
 python evaluate_twostage.py miewid-msv3 aliked \
   --stage1_csv data/labeled_bbox.csv \
   --stage2_csv data/labeled_mask_crop.csv \
   --checkpoint1 checkpoints/miewid-msv3_20260510-174925/final_model.ckpt \
-  --device $DEVICE --top_k 200 --ignore_cache >> evaluation_results.md
+  --device $DEVICE --top_k 100 --ignore_cache >> evaluation_results.md
 
 
 python evaluate_twostage.py miewid-msv3 aliked \
   --stage1_csv data/validation_set.csv \
   --stage2_csv data/validation_set_mask.csv \
   --checkpoint1 checkpoints/miewid-msv3_20260510-174925/final_model.ckpt \
-  --device $DEVICE --top_k 200 --ignore_cache >> evaluation_results.md
+  --device $DEVICE --top_k 100 --ignore_cache >> evaluation_results.md
 
-# # ====================== KEYPOINT SWEEP (Figure 3B) ======================
-# echo "## ALIKED Keypoint Sweep" >> evaluation_results.md
-# echo "" >> evaluation_results.md
+# ====================== KEYPOINT SWEEP (Figure 3B) ======================
+echo "## ALIKED Keypoint Sweep" >> evaluation_results.md
+echo "" >> evaluation_results.md
 
-# echo "  Running keypoint sweep M=200..1432..."
-# for M in 200 400 600 800 0 1000 1200; do
-#   python evaluate.py aliked-$M lightglue \
-#     --val_csv data/labeled_mask_crop.csv --device $DEVICE --ignore_cache >> evaluation_results.md
-# done
+echo "  Running keypoint sweep M=200..1432..."
+for M in 200 400 600 800 1000 1200; do
+  python evaluate.py aliked-$M lightglue \
+    --val_csv data/labeled_mask.csv --device $DEVICE --ignore_cache >> evaluation_results.md
+done
 
 # ====================== OPEN-SET ANALYSIS (Figure 4) ======================
 echo "## Open-Set Analysis" >> evaluation_results.md
@@ -99,7 +99,6 @@ python openset.py \
   --out results/fig4A_hist_aliked.pdf \
   --pr-out results/fig4C_pr_aliked.pdf \
   --threshold 344
-
 
 
 echo "  MiewID-FT histograms and PR curve..."
