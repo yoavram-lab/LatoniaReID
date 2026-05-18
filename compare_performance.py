@@ -502,8 +502,8 @@ def plot_scatter(
         offset_x = 10 if align_right else -10
         ha = "left" if align_right else "right"
         offset_y = -5
-        if label in ("ALIKED(500)+LightGlue", "ALIKED(700)+LightGlue"):
-            offset_y = -3  # Move these labels higher by 2 points
+        if label in ("500", "700", "ALIKED(500)+LightGlue", "ALIKED(700)+LightGlue"):
+            offset_y = 10  # Move these labels higher
         plt.annotate(
             label,
             (x, y),
