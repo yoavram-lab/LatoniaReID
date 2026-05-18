@@ -502,8 +502,10 @@ def plot_scatter(
         offset_x = 10 if align_right else -10
         ha = "left" if align_right else "right"
         offset_y = -5
-        # if label in ("500", "700"):
-        #     offset_y = 5  # Move these labels higher
+        if label in ("1200"):
+            offset_x = 20  # Move right
+            offset_y = -15  # Move lower to avoid overlap
+
         plt.annotate(
             label,
             (x, y),

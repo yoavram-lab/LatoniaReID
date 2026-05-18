@@ -211,3 +211,7 @@ labeler_amphibian_effnet.v4/
 *.pth
 errors/
 INTEGRATION_PLAN.md
+evaluation_results.md
+evaluation_results_M.md
+.claude/
+.task_queue.txt*
