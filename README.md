@@ -44,7 +44,7 @@ conda activate glue
 ```
 
 **Output CSVs:**
-- `data/labeled_crop.csv` — paths to bbox-cropped images
+- `data/labeled_bbox.csv` — paths to bbox-cropped images
 - `data/labeled_mask.csv` — paths to SAM-masked images
 
 ### 4. Reproduce Paper Results
