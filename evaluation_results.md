@@ -141,85 +141,68 @@ Precision 0.95 -> Recall 0.006 at threshold 0.670
 
 ## ALIKED Keypoint Sweep
 
-Creating ALIKED model with max_num_keypoints=200
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
+## ALIKED Keypoint Sweep
+
+python evaluate.py aliked-200 lightglue --val_csv data/labeled_mask_crop.csv
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
+aliked-200 | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
 0.876             0.922             0.954             0.876             0.919             0.0               0.980
 Wall-clock 8744.75s
-Creating ALIKED model with max_num_keypoints=300
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
+Creating ALIKED model with max_num_keypoints=200
+
+
+python evaluate.py aliked-400 lightglue --val_csv data/labeled_mask_crop.csv
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
-Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.959             0.978             0.980             0.959             0.978             0.0               0.994
-Wall-clock 12383.00s
-Creating ALIKED model with max_num_keypoints=400
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
-Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
-Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
-Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
+aliked-400 | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
 0.991             0.993             0.996             0.991             0.993             0.0               0.996
 Wall-clock 11904.07s
-Creating ALIKED model with max_num_keypoints=500
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
+Creating ALIKED model with max_num_keypoints=400
+
+
+
+python evaluate.py aliked-600 lightglue --val_csv data/labeled_mask_crop.csv
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
-Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.989             0.994             0.996             0.989             0.994             0.0               0.998
-Wall-clock 11474.46s
-Creating ALIKED model with max_num_keypoints=600
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
-Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
-Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
-Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
+aliked-600 | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
 0.994             0.994             0.994             0.994             0.994             0.0               0.998
 Wall-clock 14144.66s
-Creating ALIKED model with max_num_keypoints=700
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
+Creating ALIKED model with max_num_keypoints=600
+
+
+python evaluate.py aliked-800 lightglue --val_csv data/labeled_mask_crop.csv
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
-Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.993             0.996             0.996             0.993             0.996             0.0               0.998
-Wall-clock 13700.03s
-Creating ALIKED model with max_num_keypoints=800
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
-Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
-Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
-Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
+aliked-800 | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
 0.998             0.998             0.998             0.998             0.998             0.0               0.998
 Wall-clock 17041.35s
+Creating ALIKED model with max_num_keypoints=800
 
-Creating ALIKED model with max_num_keypoints=900
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
+python evaluate.py aliked-1000 lightglue --val_csv data/labeled_mask_crop.csv
 Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
 Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
 Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
-Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-50 accuracy    Top-100 accuracy
-0.996             0.998             0.998             0.996             0.998             0.0               0.998
-Wall-clock 16978.83s
-Creating ALIKED model with max_num_keypoints=1000
-python evaluate.py aliked lightglue --val_csv data/labeled_mask_crop.csv
-Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
-Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
-Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
-aliked | data/labeled_mask_crop.csv:
+aliked-1000 | data/labeled_mask_crop.csv:
 Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-100 accuracy   Top-200 accuracy   mAP@R             
 0.998              0.998              0.998              0.998              0.998              0.998              0.998              0.971             
 Wall-clock 16749.37s
+Creating ALIKED model with max_num_keypoints=1000
+
+python evaluate.py aliked-1200 lightglue --val_csv data/labeled_mask_crop.csv
+Evaluating aliked-lightglue on data/labeled_mask_crop.csv with device cuda:1...
+Saved embeddings to results/aliked_labeled_mask_crop_embeddings.pt
+Saved similarity matrix to results/aliked_labeled_mask_crop_lightglue_similarity.pt
+aliked-1200 | data/labeled_mask_crop.csv:
+Top-1 ID accuracy  Top-3 ID accuracy  Top-10 ID accuracy Top-1 accuracy     Top-3 accuracy     Top-100 accuracy   Top-200 accuracy   mAP@R             
+0.998              0.998              0.998              0.998              0.998              0.998              0.998              0.971             
+Wall-clock 19500.37s
+Creating ALIKED model with max_num_keypoints=1200

@@ -526,10 +526,10 @@ def plot_scatter(
     ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d%%"))
 
     if add_max_kp_label:
-        tick_vals = list(range(150, 451, 50))
+        tick_vals = list(range(150, 401, 50))
         x_min, x_max = min(xs), max(xs)
         plt.xlim(
-            min(0.9 * tick_vals[0], x_min * 0.9), max(tick_vals[-1] * 1.1, x_max * 1.05)
+            min(0.9 * x_min, 130), 400
         )
         plt.xticks(tick_vals)
         y_min, y_max = min(ys), max(ys)
