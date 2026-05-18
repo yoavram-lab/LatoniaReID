@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import matplotlib
+
 matplotlib.use("Agg")  # headless backend for consistent saving
 import matplotlib.pyplot as plt
 
@@ -56,7 +57,9 @@ def infer_set(dataset: str, current_set: str) -> str:
     return "Full"
 
 
-def extract_features(model: str, feature_map: Dict[str, str], raw_model: str = "") -> str:
+def extract_features(
+    model: str, feature_map: Dict[str, str], raw_model: str = ""
+) -> str:
     """Pick feature count from known map or model naming convention."""
     if model in feature_map:
         return feature_map[model]
@@ -226,7 +229,11 @@ def parse_results(text: str) -> Tuple[List[Dict[str, str]], Dict[str, str]]:
 
         if line.startswith("Wall-clock"):
             numbers = re.findall(r"[0-9]+\.?[0-9]*", line)
-            time_val = " / ".join(numbers) if numbers else line.split("Wall-clock", 1)[1].strip()
+            time_val = (
+                " / ".join(numbers)
+                if numbers
+                else line.split("Wall-clock", 1)[1].strip()
+            )
             for idx in current_command_entries:
                 entries[idx]["time"] = time_val
             current_command_entries.clear()
@@ -277,19 +284,35 @@ def format_table(
             for name, raw in zip(entry["stage_models"], entry["stage_models_raw"]):
                 feat = extract_features(name, feature_map, raw)
                 stage_models.append(display_model_name(name, raw, feat))
-            stage_sims = [display_similarity_name(s) for s in entry["stage_similarities"] if s.lower() != "cosine"]
+            stage_sims = [
+                display_similarity_name(s)
+                for s in entry["stage_similarities"]
+                if s.lower() != "cosine"
+            ]
             tail_sim = stage_sims[-1] if stage_sims else ""
             parts = stage_models + ([tail_sim] if tail_sim else [])
             model_display = "+".join(parts)
             if entry.get("stage"):
                 model_display = f"{model_display} (Stage{entry['stage']})"
-            similarity_display = ", ".join(display_similarity_name(s) for s in entry["stage_similarities"])
+            similarity_display = ", ".join(
+                display_similarity_name(s) for s in entry["stage_similarities"]
+            )
         else:
-            feat = extract_features(entry["model"], feature_map, entry.get("raw_model", ""))
-            model_display = display_model_name(entry["model"], entry.get("raw_model", ""), feat)
+            feat = extract_features(
+                entry["model"], feature_map, entry.get("raw_model", "")
+            )
+            model_display = display_model_name(
+                entry["model"], entry.get("raw_model", ""), feat
+            )
             similarity_display = display_similarity_name(entry["similarity"])
-            if add_max_kp_label and entry.get("raw_model", "").startswith("aliked-") and similarity_display.lower() == "lightglue":
-                label_feat = extract_features(entry["model"], feature_map, entry.get("raw_model", ""))
+            if (
+                add_max_kp_label
+                and entry.get("raw_model", "").startswith("aliked-")
+                and similarity_display.lower() == "lightglue"
+            ):
+                label_feat = extract_features(
+                    entry["model"], feature_map, entry.get("raw_model", "")
+                )
                 label_feat = label_feat or entry.get("raw_model", "").split("-")[-1]
                 model_display = f"ALIKED({label_feat})+LightGlue"
 
@@ -359,7 +382,11 @@ def plot_scatter(
             for name, raw in zip(entry["stage_models"], entry["stage_models_raw"]):
                 display = display_model_name(name, raw, "")
                 stage_models.append(display)
-            stage_sims = [display_similarity_name(s) for s in entry["stage_similarities"] if s.lower() != "cosine"]
+            stage_sims = [
+                display_similarity_name(s)
+                for s in entry["stage_similarities"]
+                if s.lower() != "cosine"
+            ]
             tail_sim = stage_sims[-1] if stage_sims else ""
             parts = stage_models + ([tail_sim] if tail_sim else [])
             label = "+".join([re.sub(r" \([^)]*\)", "", p) for p in parts])
@@ -370,8 +397,14 @@ def plot_scatter(
             display_model_name(entry["model"], entry.get("raw_model", ""), ""),
         )
         similarity_display = display_similarity_name(entry["similarity"])
-        if add_max_kp_label and entry.get("raw_model", "").startswith("aliked") and similarity_display.lower() == "lightglue":
-            feat = extract_features(entry["model"], feature_map, entry.get("raw_model", ""))
+        if (
+            add_max_kp_label
+            and entry.get("raw_model", "").startswith("aliked")
+            and similarity_display.lower() == "lightglue"
+        ):
+            feat = extract_features(
+                entry["model"], feature_map, entry.get("raw_model", "")
+            )
             feat = feat or entry.get("raw_model", "").split("-")[-1]
             return feat, None  # only the max_num_keypoints value as label
         if similarity_display.lower() == "cosine":
@@ -395,7 +428,9 @@ def plot_scatter(
                 continue  # drop two-stage entries
         label, stage_id = build_label(entry)
         t_val_raw = parse_max_time(entry.get("time", ""))
-        t_val = t_val_raw / 60.0 if t_val_raw == t_val_raw else None  # minutes, allow missing
+        t_val = (
+            t_val_raw / 60.0 if t_val_raw == t_val_raw else None
+        )  # minutes, allow missing
         y_val = entry["metrics"][0] * 100.0  # Top-1 ID accuracy
         current = data.setdefault(label, {})
         existing = current.get(set_key)
@@ -416,10 +451,15 @@ def plot_scatter(
     xs, ys, labels, colors = [], [], [], []
     for label, sets in data.items():
         # Special mixing: use Full time with Validation accuracy for MiewID-FT and two-stage
-        if not add_max_kp_label and label in {"MiewID-FT", "MiewID-FT+ALIKED+LightGlue"}:
+        if not add_max_kp_label and label in {
+            "MiewID-FT",
+            "MiewID-FT+ALIKED+LightGlue",
+        }:
             full = sets.get("full", {})
             val = sets.get("validation", {})
-            time_val = full.get("time") if full.get("time") is not None else val.get("time")
+            time_val = (
+                full.get("time") if full.get("time") is not None else val.get("time")
+            )
             # For two-stage marker, use full-set accuracy if available; else fall back to validation
             acc_val = full.get("acc") if full.get("acc") is not None else val.get("acc")
             if time_val is None or acc_val is None:
@@ -430,7 +470,11 @@ def plot_scatter(
             val = sets.get("validation", {})
             if "time" in full and full.get("time") is not None:
                 x = full["time"]
-                y = val.get("acc") if add_max_kp_label and "acc" in val else full.get("acc")
+                y = (
+                    val.get("acc")
+                    if add_max_kp_label and "acc" in val
+                    else full.get("acc")
+                )
             elif "time" in val and val.get("time") is not None:
                 x = val["time"]
                 y = val.get("acc")
@@ -461,7 +505,7 @@ def plot_scatter(
             label,
             (x, y),
             textcoords="offset points",
-            xytext=(offset_x, 2),
+            xytext=(offset_x, -5),
             fontsize=12,
             ha=ha,
             va="center",
@@ -479,14 +523,16 @@ def plot_scatter(
     if add_max_kp_label:
         tick_vals = list(range(150, 451, 50))
         x_min, x_max = min(xs), max(xs)
-        plt.xlim(min(0.9 * tick_vals[0], x_min * 0.9), max(tick_vals[-1] * 1.1, x_max * 1.05))
+        plt.xlim(
+            min(0.9 * tick_vals[0], x_min * 0.9), max(tick_vals[-1] * 1.1, x_max * 1.05)
+        )
         plt.xticks(tick_vals)
         y_min, y_max = min(ys), max(ys)
         plt.ylim(max(70, y_min - 2), min(100, y_max + 2))
     else:
         plt.setp(ax, xticks=[0.5, 1, 10, 100, 500])
         plt.xlim(0.5, 500)
-        plt.ylim(75, 100)
+        plt.ylim(60, 100)
     plt.margins(x=0.05, y=0.05)
     plt.tight_layout()
     plt.savefig(out_file, dpi=200)
@@ -517,12 +563,16 @@ def main() -> None:
 
     text = RESULT_FILE.read_text(encoding="utf-8")
     entries, feature_map = parse_results(text)
-    table = format_table(entries, feature_map, fmt=args.format, add_max_kp_label=args.max_num_keypoints)
+    table = format_table(
+        entries, feature_map, fmt=args.format, add_max_kp_label=args.max_num_keypoints
+    )
     print(table)
 
     if args.plot:
         args.plot.parent.mkdir(parents=True, exist_ok=True)
-        plot_scatter(entries, feature_map, args.plot, add_max_kp_label=args.max_num_keypoints)
+        plot_scatter(
+            entries, feature_map, args.plot, add_max_kp_label=args.max_num_keypoints
+        )
 
 
 if __name__ == "__main__":
