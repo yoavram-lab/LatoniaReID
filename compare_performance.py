@@ -494,7 +494,7 @@ def plot_scatter(
         print("No time data found to plot.")
         return
 
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(8, 8))
     plt.scatter(xs, ys, marker="o", s=100, color=colors)
     threshold_min = 2.0  # minutes threshold for label placement
     for x, y, label, c in zip(xs, ys, labels, colors):
@@ -528,9 +528,7 @@ def plot_scatter(
     if add_max_kp_label:
         tick_vals = list(range(150, 401, 50))
         x_min, x_max = min(xs), max(xs)
-        plt.xlim(
-            min(0.9 * x_min, 130), 400
-        )
+        plt.xlim(min(0.9 * x_min, 130), 400)
         plt.xticks(tick_vals)
         y_min, y_max = min(ys), max(ys)
         plt.ylim(max(70, y_min - 2), min(100, y_max + 2))
