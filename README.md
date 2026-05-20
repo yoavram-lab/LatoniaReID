@@ -76,12 +76,9 @@ LatoniaReIDpaper/
 ├── openset.py                         # Open-set analysis (PR curves)
 │
 ├── batch_prediction/
-│   ├── batch_predict.py               # Generate predictions for unlabeled data
-│   ├── batch_predictions_stats.py     # Analyze expert review statistics
-│   └── batch_prediction_app.py        # Gradio UI for expert review
-│
-├── figures/                           
-    └── *.pdf                          # Scatter plots and figures
+    ├── batch_predict.py               # Generate predictions for unlabeled data
+    ├── batch_predictions_stats.py     # Analyze expert review statistics
+    └── batch_prediction_app.py        # Gradio UI for expert review
 ```
 
 **Note:** Data directory (`data/`) and preprocessed results are created locally via `preprocessing.sh` and are not committed. Download the dataset from [Zenodo](https://zenodo.org/records/20026776) and set up as a symlink.
@@ -180,4 +177,4 @@ If you use this work, please cite the paper:
 
 ## License
 
-[Project-specific license]
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
